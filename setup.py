@@ -1,0 +1,51 @@
+from setuptools import setup, find_packages
+
+setup(
+    name='InformaTruth',
+    version='1.0.0',
+    author='Md Emon Hasan',
+    author_email='iconicemon01@gmail.com',
+    description='AI-Powered Fake News Detection System using RoBERTa and FLAN-T5 with Streamlit and REST API.',
+    long_description=open('README.md', encoding='utf-8').read(),
+    long_description_content_type='text/markdown',
+    url='https://github.com/Md-Emon-Hasan/InformaTruth',
+    packages=find_packages(where='src'),
+    package_dir={'': 'src'},
+    include_package_data=True,
+    install_requires=[
+        "torch",
+        "pandas",
+        "scikit-learn",
+        "datasets",
+        "transformers",
+        "tqdm",
+        "newspaper3k",
+        "PyMuPDF",
+        "pytest",
+        "fastapi",
+        "uvicorn",
+        "flask",
+        "numpy",
+        "streamlit",
+        "sentencepiece",
+        "protobuf",
+        "requests",
+        "lxml",
+        "lxml-html-clean"
+    ],
+    python_requires='>=3.9',
+    classifiers=[
+        'Intended Audience :: Developers',
+        'Intended Audience :: Information Technology',
+        'Topic :: Software Development :: Build Tools',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.9',
+    ],
+    entry_points={
+        'console_scripts': [
+            'informa-truth=app:main',
+        ],
+    },
+)
