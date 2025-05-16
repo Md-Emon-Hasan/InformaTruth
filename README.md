@@ -2,6 +2,7 @@
 This project addresses the challenge by fine-tuning a transformer-based classification model (RoBERTa) on the LIAR dataset to automatically determine whether a news statement is real or fake. Additionally, it employs a generative LLM (FLAN-T5) to produce natural language explanations for its predictions, increasing user trust and transparency in the system.
 
 [![InformaTruth](https://github.com/user-attachments/assets/42d5bc32-c739-4f5e-a8e6-9e89cc0a6e6e)](https://github.com/user-attachments/assets/42d5bc32-c739-4f5e-a8e6-9e89cc0a6e6e)
+
 ---
 
 ## 🔍 Overview
