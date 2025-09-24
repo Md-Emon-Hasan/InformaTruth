@@ -87,7 +87,6 @@ function isValidUrl(string) {
 }
 
 async function extractTextFromPDF(file) {
-    // In a real implementation, you would use PDF.js or similar
     // This is a placeholder that just returns the filename
     return file.name;
 }

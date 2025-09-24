@@ -1,10 +1,7 @@
-# Add this at the very top (before any imports)
 import sys
 from pathlib import Path
 import logging
 sys.path.insert(0, str(Path(__file__).parent))
-
-# Then modify your imports to:
 from utils.logger import setup_logging
 from models.loader import ModelLoader
 from models.classifier import Classifier

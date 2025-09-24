@@ -40,7 +40,7 @@ class PipelineBuilder:
         )
         graph.add_edge("FallbackSearch", "Router")
         graph.add_edge("Router", "Executor")
-        graph.add_edge("Executor", END)  # <-- Now END is defined
+        graph.add_edge("Executor", END)
         
         logger.info("Pipeline graph construction complete")
         return graph.compile()

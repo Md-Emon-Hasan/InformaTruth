@@ -4,11 +4,10 @@ from pathlib import Path
 # Get absolute path to sibling 'fine_tuned_liar_detector'
 MODEL_DIR = Path(__file__).parent / "fine_tuned_liar_detector"
 
-# Verify the path exists
 if not MODEL_DIR.exists():
     raise FileNotFoundError(f"Model directory not found at: {MODEL_DIR}")
 
-# MODEL_DIR = Path("../fine_tuned_liar_detector")
+# MODEL_DIR
 FLAN_MODEL_NAME = "google/flan-t5-base"
 
 # Model Configuration
