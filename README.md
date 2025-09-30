@@ -97,6 +97,11 @@ InformaTruth/
 │   ├── model.safetensors
 │   └── merges.txt
 │
+├── liar_dataset/                     # Dataset for fine tune
+│   ├── test.tsv
+│   ├── train.tsv
+│   └── valid.tsv
+│
 ├── graph/                            # LangGraph state and builder logic
 │   ├── builder.py
 │   ├── state.py
@@ -111,8 +116,7 @@ InformaTruth/
 │   └── news.pdf
 │
 ├── notebook/                         # Jupyter notebooks for experimentation
-│   ├── 1 Fine-Tuning.ipynb
-│   └── 2 Fine-Tuning with Multi Agent.ipynb
+│   └── Experiments.ipynb
 │
 ├── static/                           # Static files (CSS, JS)
 │   ├── css/
@@ -193,8 +197,11 @@ graph TD
 ## 📊 Model Performance
 | Epoch | Train Loss | Val Loss | Accuracy | F1     | Precision | Recall  |
 |-------|------------|----------|----------|--------|-----------|---------|
-| 1     | 0.3889     | 0.6674   | 0.7204   | 0.8285 | 0.7461    | 0.9313  |
-| 2     | 0.4523     | 0.6771   | 0.7196   | 0.8259 | 0.7511    | 0.9173  |
+| 1     | 0.6353     | 0.6205   | 0.6557   | 0.6601 | 0.6663    | 0.6557  |
+| 2     | 0.6132     | 0.5765   | 0.7032   | 0.6720 | 0.6817    | 0.7032  |
+| 3     | 0.5957     | 0.5779   | 0.6970   | 0.6927 | 0.6899    | 0.6970  |
+| 4     | 0.5781     | 0.5778   | 0.6978   | 0.6899 | 0.6864    | 0.6978  |
+| 5     | 0.5599     | 0.5810   | 0.6954   | 0.6882 | 0.6846    | 0.6954  |
 
 > Emphasis on **Recall** ensures the model catches most fake news cases.
 

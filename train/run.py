@@ -9,7 +9,11 @@ from transformers import RobertaForSequenceClassification
 def main():
     # Load and prepare data
     print("Loading data...")
-    dataset = data_loader.load_and_prepare_data()
+    dataset = data_loader.load_and_prepare_data(
+            train_file="../liar_dataset/train.tsv",
+            val_file="../liar_dataset/valid.tsv",
+            test_file="../liar_dataset/test.tsv"
+            )
     
     # Initialize tokenizer and tokenize dataset
     tokenizer = RobertaTokenizer.from_pretrained(MODEL_NAME)
