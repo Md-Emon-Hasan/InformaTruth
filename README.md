@@ -1,4 +1,4 @@
-# 📘 InformaTruth: AI-Driven News Authenticity Analyzer
+# InformaTruth: AI-Driven News Authenticity Analyzer
 InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages RoBERTa fine-tuning, LangGraph orchestration, RAG pipelines, and fallback retrieval agents to deliver reliable, context-aware verification. The system features a modular multi-agent architecture including Planner, Retriever, Generator, Memory, and Fallback Agents, integrating diverse tools for comprehensive reasoning.
 
 It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query coverage and ~60% improved reliability through intelligent tool routing and memory integration. Designed for real-world deployment, InformaTruth includes a Flask-based responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline, enabling enterprise-grade automated fact verification at scale.
@@ -7,13 +7,13 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 
 ---
 
-## 🚀 Live Demo
+## Live Demo
 
-🖥️ **Try it now**: [InformaTruth — Fake News Detection AI App](https://informatruth.onrender.com)
+**Try it now**: [InformaTruth — Fake News Detection AI App](https://informatruth.onrender.com)
 
 ---
 
-## ⚙️ Tech Stack
+## Tech Stack
 | **Category**                | **Technology/Resource**                                                                                |
 | --------------------------- | ------------------------------------------------------------------------------------------------------ |
 | **Core Framework**          | PyTorch, Transformers, HuggingFace                                                                     |
@@ -38,47 +38,47 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 
 ---
 
-## ✅ Key Features
+## Key Features
 
-* **🔄 Multi-Format Input Support**
+* **Multi-Format Input Support**
   Accepts raw **text**, **web URLs**, and **PDF documents** with automated preprocessing for each type.
 
-* **🧠 Full NLP Pipeline**
+* **Full NLP Pipeline**
   Integrates summarization (optional), **fake news classification** (RoBERTa), and **natural language explanation** (FLAN-T5).
 
-* **🧱 Modular Agent-Based Architecture**
+* **Modular Agent-Based Architecture**
   Built using **LangGraph** with modular agents: `Planner`, `Tool Router`, `Executor`, `Explanation Agent`, and `Fallback Agent`.
 
-* **📜 Explanation Generation**
+* **Explanation Generation**
   Uses **FLAN-T5** to generate human-readable, zero-shot rationales for model predictions.
 
-* **🧪 Tool-Augmented & Fallback Logic**
+* **Tool-Augmented & Fallback Logic**
   Dynamically queries **DuckDuckGo** when local context is insufficient, enabling robust fallback handling.
 
-* **🧼 Clean, Modular Codebase with Logging**
+* **Clean, Modular Codebase with Logging**
   Structured using clean architecture principles, agent separation, and informative logging.
 
-* **🌐 Flask with Web UI**
+* **Flask with Web UI**
   User-friendly, interactive, and responsive frontend for input, output, and visual explanations.
 
-* **🐳 Dockerized for Deployment**
+* **Dockerized for Deployment**
   Fully containerized setup with `Dockerfile` and `requirements.txt` for seamless deployment.
 
-* **⚙️ CI/CD with GitHub Actions**
+* **CI/CD with GitHub Actions**
   Automated pipelines for testing, linting, and Docker build validation to ensure code quality and production-readiness.
 
 ---
 
-## 📦 Project File Structure
+## Project File Structure
 
 ```bash
 InformaTruth/
 │
-├── .github/              # GitHub Actions
+├── .github/                          # GitHub Actions
 │   └── workflows/
 │       └── main.yml 
 │
-├── agents/                            # Modular agents (planner, executor, etc.)
+├── agents/                           # Modular agents (planner, executor, etc.)
 │   ├── executor.py
 │   ├── fallback_search.py
 │   ├── input_handler.py
@@ -159,7 +159,7 @@ InformaTruth/
 
 ---
 
-## 🧱 System Architecture
+## System Architecture
 ```mermaid
 graph TD
     A[User Input] --> B{Input Type}
@@ -191,7 +191,7 @@ graph TD
 
 ---
 
-## 📊 Model Performance
+## Model Performance
 | Epoch | Train Loss | Val Loss | Accuracy | F1     | Precision | Recall  |
 |-------|------------|----------|----------|--------|-----------|---------|
 | 1     | 0.6353     | 0.6205   | 0.6557   | 0.6601 | 0.6663    | 0.6557  |
@@ -204,7 +204,7 @@ graph TD
 
 ---
 
-## 🐳 Docker Instructions
+## Docker Instructions
 ### Step 1: Build Docker image
 ```bash
 docker build -t informa-truth-app .
@@ -217,7 +217,7 @@ docker run -p 8501:8501 informa-truth-app
 
 ---
 
-## ⚙️ CI/CD Pipeline (GitHub Actions)
+## CI/CD Pipeline (GitHub Actions)
 The CI/CD pipeline automates code checks, Docker image building, and Streamlit app validation.
 
 ### Sample Workflow
@@ -250,20 +250,16 @@ jobs:
 
 ---
 
-## 🌐 Real-World Use Case
-* Journalists and media watchdogs
-* Educators and students
-* Concerned citizens and digital media consumers
-* Social media platforms for content moderation
+## **Developed By**
 
----
-
-## 👤 Author
 **Md Emon Hasan**  
-📧 iconicemon01@gmail.com  
-🔗 [GitHub](https://github.com/Md-Emon-Hasan)
-🔗 [LinkedIn](https://www.linkedin.com/in/md-emon-hasan-695483237/)
-🔗 [Facebook](https://www.facebook.com/mdemon.hasan2001/)
-🔗 [WhatsApp](https://wa.me/8801834363533)
+**Email:** emon.mlengineer@gmail.com
+**WhatsApp:** [+8801834363533](https://wa.me/8801834363533)  
+**GitHub:** [Md-Emon-Hasan](https://github.com/Md-Emon-Hasan)  
+**LinkedIn:** [Md Emon Hasan](https://www.linkedin.com/in/md-emon-hasan-695483237/)  
+**Facebook:** [Md Emon Hasan](https://www.facebook.com/mdemon.hasan2001/)
 
 ---
+
+## License
+MIT License. Free to use with credit.
