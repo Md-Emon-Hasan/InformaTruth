@@ -1,20 +1,27 @@
-# Use an official Python runtime as a parent image
+# Use an official Python runtime with PyTorch support
 FROM python:3.11-slim
 
-# Set environment variable for PYTHONPATH
+# Set environment variables
 ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the current directory contents into the container
-COPY . /app
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Copy requirements and install
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port Flask runs on
-EXPOSE 5000
+# Copy the rest of the application
+COPY . .
 
-# Default command to run the Flask app
-CMD ["python", "app.py"]
+# Expose FastAPI port
+EXPOSE 8000
+
+# Run the application via the root entry point
+CMD ["python", "run.py"]

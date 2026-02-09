@@ -1,4 +1,4 @@
-name: Docker Image CI-CD
+name: Industry-Grade CI/CD
 
 on:
   push:
@@ -7,31 +7,42 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  test-and-build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.11'
+
+      - name: Install CI Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black ruff pytest pytest-cov
+          pip install -r requirements.txt
+
+      - name: Code Quality (Ruff & Black)
+        run: |
+          # Check linting and common errors with Ruff
+          ruff check app/ tests/
+          # Ensure code is formatted correctly with Black
+          black --check app/ tests/
+
+      - name: Run Unit Tests (with coverage)
+        run: |
+          export PYTHONPATH=$PYTHONPATH:.
+          python -m pytest tests/ --cov=app --cov-report=xml
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Cache Docker layers
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Build Docker image
+      - name: Build Docker Image
         run: docker build -t informa-truth .
 
-      - name: Test the application (Run tests inside container with PYTHONPATH)
-        run: docker run --rm -e PYTHONPATH=/app informa-truth pytest tests/
+      - name: Test Docker Container
+        run: |
+          docker run --rm informa-truth python -m pytest tests/

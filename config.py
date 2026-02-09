@@ -8,6 +8,7 @@ if not MODEL_DIR.exists():
     raise FileNotFoundError(f"Model directory not found at: {MODEL_DIR}")
 
 # MODEL_DIR
+ROBERTA_BASE_NAME = "roberta-base"
 FLAN_MODEL_NAME = "google/flan-t5-base"
 
 # Model Configuration

@@ -30,42 +30,48 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 | **PDF Parsing**             | PyMuPDF                                                                                                |
 | **Explainability**          | Natural language justification generated using FLAN-T5                                                 |
 | **State Management**        | Shared State Object (LangGraph-compatible)                                                             |
-| **Deployment Interface**    | Flask (HTML,CSS,JS)                                                                                |
-| **Hosting Platform**        | Render (Docker)                                                                  |
+| **Deployment Interface**    | FastAPI (Async, Pydantic)                                                                              |
+| **Hosting Platform**        | Render (Docker)                                                                                        |
 | **Version Control**         | Git, GitHub                                                                                            |
-| **Logging & Debugging**     | Logs, Print Debugs, Custom Logger                                                 |
-| **Input Support**         | Text, URLs, PDF documents                                                             |
+| **Logging & Debugging**     | Centralized Logs in `logs/` directory                                                                  |
+| **Input Support**           | Text, URLs, PDF documents                                                                              |
 
 ---
 
 ## Key Features
 
+* **Monolithic & Agentic Architecture**
+  Strictly organized codebase following agentic principles with modular separation of concerns.
+
+* **FastAPI Backend**
+  Replaced Flask with FastAPI for high-performance, asynchronous API handling and automatic documentation.
+
 * **Multi-Format Input Support**
-  Accepts raw **text**, **web URLs**, and **PDF documents** with automated preprocessing for each type.
+  Accepts raw **text**, **web URLs**, and **PDF documents**.
 
 * **Full NLP Pipeline**
-  Integrates summarization (optional), **fake news classification** (RoBERTa), and **natural language explanation** (FLAN-T5).
+  Integrates **fake news classification** (RoBERTa) and **natural language explanation** (FLAN-T5).
 
 * **Modular Agent-Based Architecture**
-  Built using **LangGraph** with modular agents: `Planner`, `Tool Router`, `Executor`, `Explanation Agent`, and `Fallback Agent`.
+  Built using **LangGraph** with modular agents: `Planner`, `Router`, `Executor`, and `Fallback`.
 
 * **Explanation Generation**
-  Uses **FLAN-T5** to generate human-readable, zero-shot rationales for model predictions.
+  Uses **FLAN-T5** to generate human-readable rationales for model predictions.
 
-* **Tool-Augmented & Fallback Logic**
-  Dynamically queries **DuckDuckGo** when local context is insufficient, enabling robust fallback handling.
+* **Comprehensive Testing**
+  Targeting 100% test coverage with automated unit and integration tests using `pytest`.
 
-* **Clean, Modular Codebase with Logging**
-  Structured using clean architecture principles, agent separation, and informative logging.
+* **Structured Logging**
+  All logs are automatically saved to the `logs/` directory for better debugging and monitoring.
 
-* **Flask with Web UI**
-  User-friendly, interactive, and responsive frontend for input, output, and visual explanations.
+---
 
-* **Dockerized for Deployment**
-  Fully containerized setup with `Dockerfile` and `requirements.txt` for seamless deployment.
+## Project Architecture
 
-* **CI/CD with GitHub Actions**
-  Automated pipelines for testing, linting, and Docker build validation to ensure code quality and production-readiness.
+InformaTruth follows an **Industry-Grade Monolithic Architecture** with an **Agentic Core**. 
+
+- **Monolithic Structure**: All application components (Frontend, Backend, AI Logic, Utilities) are encapsulated within the `app/` package. This ensures consistency, shared state management, and easier deployment.
+- **Agentic Core**: The internal logic is driven by modular agents (`Planner`, `Executor`, `Router`) orchestrated via **LangGraph**. This allows the system to autonomously decide which tools to use and how to process complex news data.
 
 ---
 
@@ -74,87 +80,71 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 ```bash
 InformaTruth/
 │
-├── .github/                          # GitHub Actions
-│   └── workflows/
-│       └── main.yml 
+├── .github/                          # GitHub Actions (CI/CD)
 │
-├── agents/                           # Modular agents (planner, executor, etc.)
-│   ├── executor.py
-│   ├── fallback_search.py
-│   ├── input_handler.py
-│   ├── planner.py
-│   ├── router.py
-│   └── __init__.py
+├── app/                              # [INDUSTRY STANDARD] Main Application Package
+│   ├── agents/                       # Modular Pipeline Agents
+│   │   ├── executor.py               # AI news classification & explanation logic
+│   │   ├── fallback_search.py        # DuckDuckGo fallback agent
+│   │   ├── input_handler.py          # PDF/URL/Text processing agent
+│   │   ├── planner.py                # Workflow decision agent
+│   │   └── router.py                 # Execution routing agent
+│   ├── graph/                        # LangGraph Orchestration
+│   │   ├── builder.py                # StateGraph construction
+│   │   └── state.py                  # Pipeline state definitions
+│   ├── models/                       # AI Model Wrappers
+│   │   ├── classifier.py             # RoBERTa classification logic
+│   │   └── loader.py                 # HuggingFace model loading
+│   ├── static/                       # UI Static Assets
+│   │   ├── css/style.css
+│   │   └── js/script.js
+│   ├── templates/                    # Jinja2 HTML Templates
+│   │   ├── base.html
+│   │   └── index.html
+│   ├── utils/                        # Shared Utilities
+│   │   ├── logger.py                 # Logging configuration
+│   │   └── results.py                # Results formatting
+│   └── main.py                       # FastAPI entry point & lifespan
 │
-├── fine_tuned_liar_detector/         # Fine-tuned RoBERTa model directory
-│   ├── config.json
-│   ├── vocab.json
-│   ├── tokenizer_config.json
-│   ├── special_tokens_map.json
-│   ├── model.safetensors
-│   └── merges.txt
+├── tests/                            # Comprehensive coverage tests (>95%)
+│   ├── conftest.py                   # Pytest fixtures & mocks
+│   ├── test_agents.py
+│   ├── test_api.py
+│   ├── test_models.py
+│   └── test_edge_cases.py            # Targeted coverage tests
 │
-├── liar_dataset/                     # Dataset for fine tune
-│   ├── test.tsv
-│   ├── train.tsv
-│   └── valid.tsv
+├── train/                            # [ISOLATED] Training module
+│   ├── run.py                        # Standalone training entry point
+│   ├── trainer.py                    # Model training logic
+│   └── data_loader.py                # Dataset preparation
 │
-├── graph/                            # LangGraph state and builder logic
-│   ├── builder.py
-│   ├── state.py
-│   └── __init__.py
-│
-├── models/                           # Classification + LLM model loader
-│   ├── classifier.py
-│   ├── loader.py
-│   └── __init__.py
-│
-├── news/                             # Sample news or test input
-│   └── news.pdf
-│
-├── notebook/                         # Jupyter notebooks for experimentation
-│   └── Experiments.ipynb
-│
-├── static/                           # Static files (CSS, JS)
-│   ├── css/
-│   │   └── style.css
-│   └── js/
-│       └── script.js
-│
-├── templates/                        # HTML templates for Flask UI
-│   ├── dj_base.html
-│   └── dj_index.html
-│
-├── tests/                            # Unit tests
-│   └── test_app.py
-│
-├── train/                            # Training logic
-│   ├── config.py
-│   ├── data_loader.py
-│   ├── predictor.py
-│   ├── run.py
-│   ├── trainer.py
-│   └── __init__.py
-│
-├── utils/                            # Utilities like logging, evaluation
-│   ├── logger.py
-│   ├── results.py
-│   └── __init__.py
-│
-├── __init__.py                        
-├── app.png                           # Demo
-├── demo.webm                         # Demo video
-├── app.py                            # Flask app entry point
-├── main.py                           # Main script / orchestrator
-├── config.py                         # Configuratin file
-├── setup.py                          # Project setup for pip install
-├── render.yaml                       # Project setup render
-├── Dockerfile                        # Docker container spec
-├── requirements.txt                  # Python dependencies
-├── LICENSE                           # License file
-├── .gitignore                        # Git ignore rules
-├── .gitattributes                    # Git lfs rules
-└── README.md                         # Readme
+├── logs/                             # Centralized log storage
+├── config.py                         # Global project configuration
+├── run.py                            # Root launch script
+└── requirements.txt                  # Python dependencies
+```
+
+---
+
+## Getting Started
+
+### 1. Running the Application
+To start the FastAPI web server and UI, run:
+```bash
+python run.py
+```
+The application will be available at `http://localhost:8000`.
+
+### 2. Running Training
+To trigger the model training process independently:
+```bash
+python train/run.py
+```
+
+### 3. Running Tests
+To run the automated test suite and check coverage:
+```bash
+pytest tests/
 ```
 
 ---
@@ -201,6 +191,34 @@ graph TD
 | 5     | 0.5599     | 0.5810   | 0.6954   | 0.6882 | 0.6846    | 0.6954  |
 
 > Emphasis on **Recall** ensures the model catches most fake news cases.
+
+---
+
+## Professional Testing & Quality
+To maintain industry standards locally, use the following commands:
+
+### 1. Run All Tests (with Coverage)
+```bash
+# Set PYTHONPATH to current directory
+$env:PYTHONPATH = "." 
+# Run pytest with 95%+ coverage target
+python -m pytest tests/ --cov=app --cov-report=term-missing
+```
+
+### 2. Linting (Professional Check)
+```bash
+# Extremely fast linting with Ruff
+ruff check app/ tests/
+```
+
+### 3. Code Formatting
+```bash
+# Check if code follows Black standard
+black --check app/ tests/
+
+# Auto-apply formatting
+black app/ tests/
+```
 
 ---
 

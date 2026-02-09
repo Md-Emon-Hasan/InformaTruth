@@ -1,8 +1,15 @@
 import data_loader
 import trainer
 import utils
+import sys
+import os
+
+# Add parent directory to path to allow importing config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from config import MODEL_NAME
-from config import MODEL_PATH
+from train.config import MODEL_PATH # Use training config for output path
+
 from transformers import RobertaTokenizer
 from transformers import RobertaForSequenceClassification
 

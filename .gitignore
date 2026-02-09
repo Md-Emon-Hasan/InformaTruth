@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Testing / Coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.noserc
+nosetests.xml
+flake8_report.txt
+lint_report.txt
+*_report.txt
+
+# Temporary / CI Artifacts
+final_test_check.txt
+final_ci_green_report.txt
+e2e_ci_report.txt
+final_verification_results.txt
+final_lint_report.txt
+
+# OS
+.DS_Store
+Thumbs.db

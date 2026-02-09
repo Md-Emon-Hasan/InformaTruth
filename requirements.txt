@@ -3,12 +3,12 @@ datasets
 scikit-learn
 newspaper3k
 PyMuPDF
-pytest
 torch
 fastapi
 uvicorn
+jinja2
+python-multipart
 gunicorn
-flask
 pandas
 numpy
 tqdm
@@ -24,4 +24,8 @@ langchain-community
 langchain-huggingface
 huggingface-hub
 langchain-core
-langchain-community
+pytest
+pytest-cov
+peft
+black
+ruff
