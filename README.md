@@ -66,23 +66,14 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 
 ---
 
-## Project Architecture
-
-InformaTruth follows an **Industry-Grade Monolithic Architecture** with an **Agentic Core**. 
-
-- **Monolithic Structure**: All application components (Frontend, Backend, AI Logic, Utilities) are encapsulated within the `app/` package. This ensures consistency, shared state management, and easier deployment.
-- **Agentic Core**: The internal logic is driven by modular agents (`Planner`, `Executor`, `Router`) orchestrated via **LangGraph**. This allows the system to autonomously decide which tools to use and how to process complex news data.
-
----
-
 ## Project File Structure
 
 ```bash
 InformaTruth/
 │
-├── .github/                          # GitHub Actions (CI/CD)
+├── .github/                          # GitHub Actions
 │
-├── app/                              # [INDUSTRY STANDARD] Main Application Package
+├── app/                              # Main Application Package
 │   ├── agents/                       # Modular Pipeline Agents
 │   │   ├── executor.py               # AI news classification & explanation logic
 │   │   ├── fallback_search.py        # DuckDuckGo fallback agent
@@ -106,14 +97,14 @@ InformaTruth/
 │   │   └── results.py                # Results formatting
 │   └── main.py                       # FastAPI entry point & lifespan
 │
-├── tests/                            # Comprehensive coverage tests (>95%)
+├── tests/                            # Comprehensive coverage tests
 │   ├── conftest.py                   # Pytest fixtures & mocks
 │   ├── test_agents.py
 │   ├── test_api.py
 │   ├── test_models.py
 │   └── test_edge_cases.py            # Targeted coverage tests
 │
-├── train/                            # [ISOLATED] Training module
+├── train/                            # Training module
 │   ├── run.py                        # Standalone training entry point
 │   ├── trainer.py                    # Model training logic
 │   └── data_loader.py                # Dataset preparation

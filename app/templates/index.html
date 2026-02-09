@@ -2,72 +2,98 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card animate__animated animate__fadeIn">
-            <div class="card-header text-center">
-                <h3 class="mb-2"><i class="bi bi-search me-2"></i>News Authenticity Analyzer</h3>
-                <h6 class="mb-0 text-warning"><i class="bi bi-search me-2"></i>Fine Tune RoBERTa-based Multi-Modal Fake News Detection with Explanation using FLAN-T5, and Multi-Agent LangGraph System.</h6>
+    <div class="col-lg-10 col-xl-8">
+        <!-- Hero Section -->
+        <div class="text-center mb-5 animate__animated animate__fadeInDown">
+            <h1 class="display-4 fw-bold mb-3">Detect Truth with <span class="gradient-text">Precision</span></h1>
+            <p class="text-secondary fs-5 mx-auto" style="max-width: 600px;">
+                Advanced Multi-Agent system powered by fine-tuned RoBERTa and FLAN-T5 for news authenticity analysis.
+            </p>
+        </div>
+
+        <!-- Main Analysis Card -->
+        <div class="glass-panel p-4 p-md-5 animate__animated animate__fadeIn">
+            <div class="mb-5 text-center">
+                <h4 class="fw-bold mb-0"><i class="bi bi-cpu-fill me-2 gradient-text"></i>Analyzer Engine</h4>
+                <div class="h-1 w-25 bg-primary mx-auto mt-2 opacity-50" style="height: 2px;"></div>
             </div>
-            <div class="card-body">
-                <form id="analysisForm">
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">Select Input Method</label>
-                        <div class="btn-group w-100" role="group">
-                            <input type="radio" class="btn-check" name="inputType" id="textType" value="text" autocomplete="off" checked>
-                            <label class="btn btn-outline-primary" for="textType">
-                                <i class="bi bi-text-paragraph me-2"></i>Text
+
+            <form id="analysisForm">
+                <!-- Input Selector -->
+                <div class="mb-4">
+                    <label class="form-label text-secondary small fw-bold text-uppercase tracking-wider">Analysis
+                        Vector</label>
+                    <div class="row g-3">
+                        <div class="col-4">
+                            <input type="radio" class="btn-check" name="inputType" id="textType" value="text" checked>
+                            <label class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-3"
+                                for="textType">
+                                <i class="bi bi-text-left fs-3 mb-1"></i>
+                                <span class="small font-medium">Text Content</span>
                             </label>
-                            
-                            <input type="radio" class="btn-check" name="inputType" id="urlType" value="url" autocomplete="off">
-                            <label class="btn btn-outline-primary" for="urlType">
-                                <i class="bi bi-link-45deg me-2"></i>URL
+                        </div>
+                        <div class="col-4">
+                            <input type="radio" class="btn-check" name="inputType" id="urlType" value="url">
+                            <label class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-3"
+                                for="urlType">
+                                <i class="bi bi-link-45deg fs-3 mb-1"></i>
+                                <span class="small font-medium">Article URL</span>
                             </label>
-                            
-                            <input type="radio" class="btn-check" name="inputType" id="pdfType" value="pdf" autocomplete="off">
-                            <label class="btn btn-outline-primary" for="pdfType">
-                                <i class="bi bi-file-earmark-pdf me-2"></i>PDF
+                        </div>
+                        <div class="col-4">
+                            <input type="radio" class="btn-check" name="inputType" id="pdfType" value="pdf">
+                            <label class="btn btn-outline-primary w-100 d-flex flex-column align-items-center py-3"
+                                for="pdfType">
+                                <i class="bi bi-file-earmark-pdf fs-3 mb-1"></i>
+                                <span class="small font-medium">PDF Document</span>
                             </label>
                         </div>
                     </div>
-                    
-                    <div class="mb-4" id="textInputGroup">
-                        <label class="form-label fw-bold">News Content</label>
-                        <textarea class="form-control" id="content" rows="6" placeholder="Paste news article text here..."></textarea>
+                </div>
+
+                <!-- Input Areas -->
+                <div class="mb-4 animate__animated animate__fadeIn" id="textInputGroup">
+                    <label class="form-label text-secondary small fw-bold text-uppercase">Paste News Text</label>
+                    <textarea class="form-control" id="content" rows="6"
+                        placeholder="Paste the news article text here for deep analysis..."></textarea>
+                </div>
+
+                <div class="mb-4 d-none animate__animated animate__fadeIn" id="urlInputGroup">
+                    <label class="form-label text-secondary small fw-bold text-uppercase">Article Web Address</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0"><i
+                                class="bi bi-browser-chrome"></i></span>
+                        <input type="url" class="form-control border-start-0" id="urlContent"
+                            placeholder="https://example.com/news/article-abc">
                     </div>
-                    
-                    <div class="mb-4 d-none" id="urlInputGroup">
-                        <label class="form-label fw-bold">Article URL</label>
-                        <input type="url" class="form-control" id="urlContent" placeholder="https://example.com/news-article">
-                    </div>
-                    
-                    <div class="mb-4 d-none" id="fileInputGroup">
-                        <label class="form-label fw-bold">Upload PDF Document</label>
-                        <div class="input-group">
-                            <input type="file" class="form-control" id="fileUpload" accept=".pdf">
-                            <button class="btn btn-outline-secondary" type="button" id="clearFile">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                        </div>
-                        <div class="form-text">We don't store your documents</div>
-                    </div>
-                    
-                    <div class="text-center mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg pulse">
-                            <i class="bi bi-shield-check me-2"></i>Analyze Authenticity
+                </div>
+
+                <div class="mb-4 d-none animate__animated animate__fadeIn" id="fileInputGroup">
+                    <label class="form-label text-secondary small fw-bold text-uppercase">Drop PDF Document</label>
+                    <div class="input-group">
+                        <input type="file" class="form-control" id="fileUpload" accept=".pdf">
+                        <button class="btn btn-outline-danger" type="button" id="clearFile">
+                            <i class="bi bi-trash3-fill"></i>
                         </button>
                     </div>
-                </form>
-                
-                <div id="loadingSpinner" class="text-center my-5 d-none">
-                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <h5 class="mt-3">Analyzing Content...</h5>
-                    <p class="text-muted">Our AI is carefully examining the text</p>
                 </div>
-                
-                <div id="resultsContainer" class="mt-4"></div>
+
+                <!-- Submit Button -->
+                <div class="text-center pt-3">
+                    <button type="submit" class="btn btn-premium btn-lg w-100">
+                        <span class="me-2">Start Deep Analysis</span>
+                        <i class="bi bi-stars"></i>
+                    </button>
+                </div>
+            </form>
+
+            <div id="loadingSpinner" class="text-center my-5 d-none">
+                <div class="spinner-grow text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                <h5 class="fw-bold">Orchestrating Agents...</h5>
+                <p class="text-secondary small">Gathering context and running classifier...</p>
             </div>
+
+            <div id="resultsContainer" class="mt-5"></div>
         </div>
     </div>
 </div>
