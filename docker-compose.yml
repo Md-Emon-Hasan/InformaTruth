@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      # Exclude venv or pycache if needed
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:80"  # Mapping port 80 of nginx container to 3000 on host (or 5173 if you prefer)
+    depends_on:
+      - backend

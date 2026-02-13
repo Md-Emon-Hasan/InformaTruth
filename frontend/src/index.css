@@ -1,0 +1,134 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+/* 
+   InformaTruth Premium UI System
+   Theme: Dark Mode Glassmorphism
+   Colors: Electric Purple, Cyber Blue, Neon Accents
+*/
+
+:root {
+  --bg-dark: #0f172a;
+  --bg-glass: rgba(15, 23, 42, 0.7);
+  --border-glass: rgba(255, 255, 255, 0.1);
+  --primary: #8b5cf6;
+  /* Electric Purple */
+  --secondary: #0ea5e9;
+  /* Cyber Blue */
+  --accent: #d946ef;
+  /* Neon Pink */
+  --real: #10b981;
+  /* Emerald Green */
+  --fake: #ef4444;
+  /* Rose Red */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
+body {
+  background-color: var(--bg-dark);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%);
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-family: 'Inter', 'Poppins', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Card */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Navbar overrides */
+.navbar-glass {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-glass);
+}
+
+/* Custom classes replacing old bootstrap specific ones where needed, 
+   but we will use Tailwind classes mostly in JSX. 
+   Keeping some utility classes for compatibility with copied logic. */
+
+.btn-premium {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  border: none;
+  border-radius: 50px;
+  color: white;
+  font-weight: 600;
+  padding: 12px 32px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 10px 20px -10px var(--primary);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-premium:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 15px 30px -10px var(--primary);
+  color: white;
+}
+
+.btn-premium:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.real-border {
+  border-left: 6px solid var(--real);
+}
+
+.fake-border {
+  border-left: 6px solid var(--fake);
+}
+
+/* Blobs */
+.blob {
+  position: fixed;
+  z-index: -1;
+  filter: blur(80px);
+  opacity: 0.4;
+  animation: float 20s infinite alternate;
+}
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(100px, 50px) scale(1.1);
+  }
+
+  100% {
+    transform: translate(-50px, 100px) scale(0.9);
+  }
+}
+
+.social-link {
+  @apply w-10 h-10 inline-flex items-center justify-center rounded-full bg-white/5 mx-2 text-xl text-slate-400 transition-all duration-300;
+}
+
+.social-link:hover {
+  @apply bg-violet-500 text-white -translate-y-1;
+}

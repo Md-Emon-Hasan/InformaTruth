@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "InformaTruth"
+version = "1.0.0"
+description = "Fine Tune RoBERTa-based Multi-Modal Fake News Detection with Explanation using FLAN-T5, and Multi-Agent LangGraph System."
+readme = "README.md"
+authors = [
+  { name = "Md Emon Hasan", email = "iconicemon01@gmail.com" },
+]
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.4.0",
+    "pandas>=2.2.0",
+    "scikit-learn>=1.5.0",
+    "datasets>=3.0.0",
+    "transformers>=4.44.0",
+    "tqdm",
+    "newspaper3k",
+    "PyMuPDF",
+    "pytest",
+    "fastapi",
+    "gunicorn",
+    "uvicorn",
+    "numpy>=1.26.4",
+    "sentencepiece",
+    "protobuf",
+    "requests",
+    "lxml",
+    "lxml-html-clean",
+    "duckduckgo-search",
+    "langgraph>=1.0.8",
+    "langchain>=1.2.9",
+    "langchain-community>=0.4.1",
+    "langchain-huggingface>=1.2.0",
+    "huggingface-hub",
+    "langchain-core>=1.2.7",
+    "langchain-text-splitters>=1.1.0",
+    "langchain-groq>=1.1.2",
+    "python-multipart",
+    "jinja2",
+    "sqlmodel"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov",
+    "black",
+    "ruff",
+    "peft"
+]
+
+[project.urls]
+Homepage = "https://github.com/Md-Emon-Hasan/InformaTruth"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "train*"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=app --cov-report=term-missing"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F"]
+ignore = []
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
