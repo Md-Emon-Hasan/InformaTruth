@@ -45,7 +45,8 @@ def test_planner_long_text():
         "text": (
             "A very long text that exceeds the minimum required length "
             "for the planner to proceed to classification."
-        ) * 5
+        )
+        * 5
     }
     result = Planner.decide_flow(state)
     assert result["next"] == "Router"

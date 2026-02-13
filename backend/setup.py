@@ -2,20 +2,20 @@ from setuptools import setup
 from setuptools import find_packages
 
 setup(
-    name='InformaTruth',
-    version='1.0.0',
-    author='Md Emon Hasan',
-    author_email='iconicemon01@gmail.com',
+    name="InformaTruth",
+    version="1.0.0",
+    author="Md Emon Hasan",
+    author_email="iconicemon01@gmail.com",
     description=(
         "AI-Driven News Authenticity Analyzer: BERT-based Multimodal "
         "Fake News Detection with Explanation using FLAN-T5, "
         "and Multi-Agent LangGraph System."
     ),
-    long_description=open('README.md', encoding='utf-8').read(),
-    long_description_content_type='text/markdown',
-    url='https://github.com/Md-Emon-Hasan/InformaTruth',
-    packages=find_packages(where='src'),
-    package_dir={'': 'src'},
+    long_description=open("README.md", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/Md-Emon-Hasan/InformaTruth",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     include_package_data=True,
     install_requires=[
         "torch>=1.13.1",
@@ -46,22 +46,22 @@ setup(
         "huggingface-hub",
         "langchain-core",
         "langchain-community",
-        "sqlmodel"
+        "sqlmodel",
     ],
-    python_requires='>=3.9',
+    python_requires=">=3.9",
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Developers',
-        'Intended Audience :: Information Technology',
-        'Topic :: Software Development :: Build Tools',
-        'Topic :: Scientific/Engineering :: Artificial Intelligence',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Topic :: Software Development :: Build Tools",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     entry_points={
-        'console_scripts': [
-            'informa-truth=app.main:main',  
+        "console_scripts": [
+            "informa-truth=app.main:main",
         ],
     },
 )

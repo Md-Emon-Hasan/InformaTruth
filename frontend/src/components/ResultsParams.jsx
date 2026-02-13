@@ -1,6 +1,7 @@
 import React from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import PropTypes from 'prop-types';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -94,6 +95,15 @@ const ResultsParams = ({ result, onReset }) => {
             </div>
         </div>
     );
+};
+
+ResultsParams.propTypes = {
+    result: PropTypes.shape({
+        label: PropTypes.string,
+        confidence: PropTypes.any,
+        explanation: PropTypes.string,
+    }),
+    onReset: PropTypes.func,
 };
 
 export default ResultsParams;

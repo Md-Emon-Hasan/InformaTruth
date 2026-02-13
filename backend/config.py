@@ -19,6 +19,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_LEVEL = "INFO"
 
+
 # Pipeline Configuration
 class PipelineConfig:
     FALLBACK_SEARCH_QUERY = "latest news fake"
