@@ -31,3 +31,4 @@ pytest-cov
 peft
 black
 ruff
+sqlmodel
