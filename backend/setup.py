@@ -6,7 +6,11 @@ setup(
     version='1.0.0',
     author='Md Emon Hasan',
     author_email='iconicemon01@gmail.com',
-    description='Fine Tune RoBERTa-based Multi-Modal Fake News Detection with Explanation using FLAN-T5, and Multi-Agent LangGraph System.',
+    description=(
+        "AI-Driven News Authenticity Analyzer: BERT-based Multimodal "
+        "Fake News Detection with Explanation using FLAN-T5, "
+        "and Multi-Agent LangGraph System."
+    ),
     long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/Md-Emon-Hasan/InformaTruth',

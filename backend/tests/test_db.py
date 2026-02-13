@@ -41,9 +41,11 @@ def test_analyze_saves_to_db(client: TestClient, session: Session):
     # In TestClient with lifespan, it might load models. 
     # For speed, we can mock the pipeline if we can access it, 
     # but lifespan runs in TestClient. 
-    # Let's rely on the fact that if models load, it's fine, or we can mock the pipeline global.
+    # Let's rely on the fact that if models load, it's fine, 
+    # or we can mock the pipeline global.
     
-    # Note: Modifying global 'pipeline' in app.main might be tricky with TestClient lifespan
+    # Note: Modifying global 'pipeline' in app.main might be tricky 
+    # with TestClient lifespan
     # However, since we are doing an integration test, let's see if we can just run it.
     # If loading models takes too long, we might need to mock.
     
