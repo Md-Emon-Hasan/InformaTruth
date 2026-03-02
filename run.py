@@ -1,96 +1,89 @@
-import subprocess
-import sys
 import os
+import sys
 import time
+import subprocess
+from pathlib import Path
 
-# Global flag for shutdown
-shutdown_flag = False
+# --- Configuration ---
+BASE_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = BASE_DIR / "backend"
+FRONTEND_DIR = BASE_DIR / "frontend"
+VENV_DIR = BASE_DIR / "venv"
 
-def setup_env():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    backend_dir = os.path.join(base_dir, "backend")
-    frontend_dir = os.path.join(base_dir, "frontend")
+# Use venv python
+if os.name == "nt":
+    PYTHON = VENV_DIR / "Scripts" / "python.exe"
+else:
+    PYTHON = VENV_DIR / "bin" / "python"
 
-    print(" Initializing InformaTruth...")
+def bootstrap():
+    """Setup venv and install dependencies."""
+    print(">> Initializing environment...")
 
-    # Python deps check
-    req_file = os.path.join(backend_dir, "requirements.txt")
-    if os.path.exists(req_file):
-        print(" Checking backend dependencies...")
-        try:
-            subprocess.run([sys.executable, "-m", "pip", "install", "-r", req_file], check=False)
-        except:
-            print(" Manual pip install might be needed.")
+    # 1. Ensure venv exists
+    if not VENV_DIR.exists():
+        print(">> Creating virtual environment...")
+        subprocess.run([sys.executable, "-m", "venv", "venv"], check=True)
 
-    # Frontend node_modules check
-    node_modules = os.path.join(frontend_dir, "node_modules")
-    if not os.path.exists(node_modules):
-        print(" node_modules missing. Running npm install...")
-        npm = "npm.cmd" if sys.platform == "win32" else "npm"
-        try:
-            subprocess.run([npm, "install"], cwd=frontend_dir, check=True, shell=(sys.platform == "win32"))
-        except Exception as e:
-            print(f" Failed to install frontend deps: {e}")
-            sys.exit(1)
+    # 2. Install backend deps
+    reqs = BACKEND_DIR / "requirements.txt"
+    if reqs.exists():
+        print(">> Syncing backend dependencies...")
+        subprocess.run([str(PYTHON), "-m", "pip", "install", "-q", "-r", str(reqs)])
 
-    # Quick model check
-    model_path = os.path.join(backend_dir, "fine_tuned_liar_detector", "adapter_model.safetensors")
-    if os.path.exists(model_path):
-        if os.path.getsize(model_path) < 1000000:
-            print("-" * 50)
-            print("CRITICAL: adapter_model.safetensors looks like a Git LFS pointer!")
-            print("Please download the actual 4.7MB file to the detector folder.")
-            print("-" * 50)
-            time.sleep(2)
-    else:
-        print(f"!! Missing model file: {model_path}")
+    # 3. Install frontend deps
+    if not (FRONTEND_DIR / "node_modules").exists():
+        print(">> node_modules missing. Running npm install...")
+        npm = "npm.cmd" if os.name == "nt" else "npm"
+        subprocess.run([npm, "install"], cwd=FRONTEND_DIR, shell=(os.name == "nt"), check=True)
 
-    return backend_dir, frontend_dir
+    # 4. Model pointer check
+    model = BACKEND_DIR / "fine_tuned_liar_detector" / "adapter_model.safetensors"
+    if model.exists() and model.stat().st_size < 1024 * 1024:
+        print("\n[!] WARNING: adapter_model.safetensors is a Git LFS pointer.")
+        print("[!] Please download the actual 4.7MB file manually.\n")
 
-def main():
-    backend_dir, frontend_dir = setup_env()
-
-    print("\n Booting services...")
+def run():
+    bootstrap()
+    
+    print("\n>> Booting services...")
     
     # Start Backend
-    backend_process = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
-        cwd=backend_dir,
-        shell=False
+    be_proc = subprocess.Popen(
+        [str(PYTHON), "-m", "uvicorn", "app.main:app", "--port", "8000", "--reload"],
+        cwd=BACKEND_DIR
     )
 
     # Start Frontend
-    npm = "npm.cmd" if sys.platform == "win32" else "npm"
-    frontend_process = subprocess.Popen(
+    npm = "npm.cmd" if os.name == "nt" else "npm"
+    fe_proc = subprocess.Popen(
         [npm, "run", "dev"],
-        cwd=frontend_dir,
-        shell=False
+        cwd=FRONTEND_DIR,
+        shell=(os.name == "nt")
     )
 
     print(f"\nAPI: http://127.0.0.1:8000")
-    print(f"UI:  http://localhost:5173\n")
-    print("Press Ctrl+C to stop.\n")
+    print(f"UI:  http://localhost:5173")
+    print("\nPress Ctrl+C to stop.\n")
 
     try:
         while True:
             time.sleep(1)
-            if backend_process.poll() is not None or frontend_process.poll() is not None:
-                print("!! One of the services stopped unexpectedly.")
+            # Exit if either process dies
+            if be_proc.poll() is not None or fe_proc.poll() is not None:
                 break
     except KeyboardInterrupt:
-        print("\n Shutting down...")
+        print("\n>> Shutting down...")
     finally:
-        if backend_process.poll() is None:
-            backend_process.terminate()
-        
-        if frontend_process.poll() is None:
-            if sys.platform == 'win32':
-                 subprocess.run(["taskkill", "/F", "/T", "/PID", str(frontend_process.pid)], 
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            else:
-                frontend_process.terminate()
-        
-        print("Cleanup done.")
+        # Cleanup
+        be_proc.terminate()
+        if os.name == "nt":
+            # Force kill node process tree on Windows
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(fe_proc.pid)], 
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            fe_proc.terminate()
+        print(">> Done.")
 
 if __name__ == "__main__":
-    main()
+    run()
