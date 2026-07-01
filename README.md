@@ -316,9 +316,9 @@ The pipeline runs automatically on every `push` and `pull_request` to the `main`
 ## **Developed By**
 
 **Md Emon Hasan**  
-**Email:** emon.mlengineer@gmail.com
+**Email:** emon.mlengineer@gmail.com  
 **WhatsApp:** [+8801834363533](https://wa.me/8801834363533)  
-**Portfolio:** [Md-Emon-Hasan](https://github.com/Md-Emon-Hasan)  
+**Portfolio:** [Md-Emon-Hasan](https://emonlabs-ai.hitechparks.com/)  
 **GitHub:** [Md-Emon-Hasan](https://github.com/Md-Emon-Hasan)  
 **LinkedIn:** [Md Emon Hasan](https://www.linkedin.com/in/md-emon-hasan-695483237/)  
 **Facebook:** [Md Emon Hasan](https://www.facebook.com/mdemon.hasan2001/)

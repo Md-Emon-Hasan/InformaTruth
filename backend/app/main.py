@@ -57,6 +57,13 @@ app.add_middleware(
 )
 
 
+@app.get("/health")
+async def health():
+    # uvicorn only starts serving requests after the lifespan startup finishes,
+    # so a 200 here means models are fully loaded and the app is ready to use.
+    return {"status": "ok", "ready": pipeline is not None}
+
+
 class AnalyzeRequest(BaseModel):
     inputType: str
     content: str

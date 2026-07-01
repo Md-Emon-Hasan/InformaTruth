@@ -1,5 +1,7 @@
 import os, sys, time, subprocess, threading, webbrowser, signal
 from contextlib import contextmanager
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
 
 def run_checked(cmd, **kwargs):
     """Run a command and abort with a clear message if it fails."""
@@ -46,8 +48,6 @@ def start():
         if os.path.exists("backend/requirements.txt") and not os.path.exists(deps_marker):
             print(">> installing backend deps (first run only, this can take several minutes)...")
             # no -q: show pip progress so it doesn't look frozen while torch/transformers download.
-            # On Windows, run pip in its own process group so an inherited Ctrl+C / console signal
-            # can't kill it mid-download ("Operation cancelled by user").
             pip_kwargs = {}
             if os.name == "nt":
                 pip_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -61,8 +61,6 @@ def start():
             run_checked([npm, "install"], cwd="frontend", shell=(os.name == "nt"))
 
     # be + fe — give each server its own process group so a stray console signal
-    # (e.g. VSCode auto-activating the venv in the terminal) can't tear them down.
-    # We shut them down explicitly in the finally block instead.
     proc_kwargs = {}
     if os.name == "nt":
         proc_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -71,14 +69,28 @@ def start():
     fe = subprocess.Popen([npm, "run", "dev"], cwd="frontend", shell=(os.name == "nt"), **proc_kwargs)
 
     ui_url = "http://localhost:5173"
+    health_url = "http://127.0.0.1:8000/health"
     print(f"\nAPI: http://127.0.0.1:8000\nUI:  {ui_url}\nCTRL+C to stop.\n")
 
-    # open the UI in the browser once the dev server has had a moment to boot
+    def backend_ready():
+        # uvicorn only answers requests after lifespan startup (model loading) completes
+        try:
+            with urlopen(health_url, timeout=2):
+                return True
+        except HTTPError:
+            return True  # server responded (even non-200) => it's up
+        except (URLError, OSError):
+            return False  # connection refused => still starting / loading models
+
+    # open the UI only once the backend has finished loading its models
     def open_browser():
-        time.sleep(3)
-        if fe.poll() is None:
-            print(f">> opening {ui_url} in browser...")
-            webbrowser.open(ui_url)
+        print(">> waiting for backend to finish loading models (this can take a while on first run)...")
+        while be.poll() is None and fe.poll() is None:
+            if backend_ready():
+                print(f">> backend ready! opening {ui_url} in browser...")
+                webbrowser.open(ui_url)
+                return
+            time.sleep(1)
 
     threading.Thread(target=open_browser, daemon=True).start()
 
