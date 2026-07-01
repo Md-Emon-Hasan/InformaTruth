@@ -1,9 +1,14 @@
 def tokenize_dataset(dataset, tokenizer):
     """Tokenize the dataset"""
 
+    from train.config import MAX_LENGTH
+
     def tokenize(batch):
         return tokenizer(
-            batch["statement"], truncation=True, padding="max_length", max_length=128
+            batch["statement"],
+            truncation=True,
+            padding="max_length",
+            max_length=MAX_LENGTH,
         )
 
     for split in dataset:

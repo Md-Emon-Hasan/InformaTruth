@@ -59,7 +59,7 @@
       "single_word": false,
       "lstrip": true,
       "rstrip": false,
-      "normalized": false,
+      "normalized": true,
       "special": true
     }
   ],

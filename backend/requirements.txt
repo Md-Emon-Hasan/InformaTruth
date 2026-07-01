@@ -29,6 +29,10 @@ huggingface-hub
 pytest
 pytest-cov
 peft
+# QLoRA 4-bit quantization. bitsandbytes only ships CUDA/CPU wheels for
+# Linux/Windows; it has no macOS wheel, so skip it there (training/inference
+# falls back to a full-precision base on hosts without a usable GPU).
+bitsandbytes; platform_system != "Darwin"
 black
 ruff
 sqlmodel

@@ -3,6 +3,7 @@ base_model: roberta-base
 library_name: peft
 tags:
 - base_model:adapter:roberta-base
+- qlora
 - lora
 - transformers
 ---
@@ -203,4 +204,4 @@ Carbon emissions can be estimated using the [Machine Learning Impact calculator]
 [More Information Needed]
 ### Framework versions
 
-- PEFT 0.17.1
+- PEFT 0.19.1

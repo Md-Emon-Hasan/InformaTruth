@@ -1,9 +1,9 @@
-# InformaTruth: AI-Driven News Authenticity Analyzer
+# InformaTruth: Explainable AI Fake News Authenticity Analyzer
 [![CI/CD](https://github.com/Md-Emon-Hasan/InformaTruth/actions/workflows/main.yml/badge.svg)](https://github.com/Md-Emon-Hasan/InformaTruth/actions) [![Python](https://img.shields.io/badge/python-3.11-blue)](https://python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org/) [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Transformers-blue)](https://huggingface.co/) [![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white)](https://python.langchain.com/) [![scikit-learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=flat&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/) [![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=flat&logo=pandas&logoColor=white)](https://pandas.pydata.org/) [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com) [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB) ![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white) ![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=flat&logo=vite&logoColor=white)
 
-InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages RoBERTa fine-tuning, LangGraph orchestration, RAG pipelines, and fallback retrieval agents to deliver reliable, context-aware verification. The system features a modular multi-agent architecture including Planner, Retriever, Generator, Memory, and Fallback Agents, integrating diverse tools for comprehensive reasoning.
+InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages QLoRA (4-bit) fine-tuning of RoBERTa, LangGraph orchestration, RAG pipelines, and fallback retrieval agents to deliver reliable, context-aware verification. The system features a modular multi-agent architecture including Planner, Retriever, Generator, Memory, and Fallback Agents, integrating diverse tools for comprehensive reasoning.
 
-It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query coverage and ~60% improved reliability through intelligent tool routing and memory integration. Designed for real-world deployment, InformaTruth includes a Flask-based responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline, enabling enterprise-grade automated fact verification at scale.
+It achieves ~66% accuracy and ~62% macro-F1 (with ~78% recall on fake-news detection) on the LIAR dataset, with 95% query coverage and ~60% improved reliability through intelligent tool routing and memory integration. Designed for real-world deployment, InformaTruth includes a Flask-based responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline, enabling enterprise-grade automated fact verification at scale.
 
 [![Project demo video](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)
 
@@ -24,11 +24,12 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 | **Core Framework**          | PyTorch, Transformers, HuggingFace                                                                     |
 | **Frontend Framework**      | **React.js** (Vite), Tailwind CSS, DaisyUI                                                             |
 | **Backend Framework**       | **FastAPI** (Async, Pydantic)                                                                          |
-| **Classification Model**    | Fine-tuned RoBERTa-base on LIAR Dataset                                                                |
+| **Classification Model**    | QLoRA Fine-tuned RoBERTa-base (4-bit NF4 + LoRA adapters) on LIAR Dataset                              |
 | **Explanation Model**       | FLAN-T5-base (Zero-shot Prompting)                                                                     |
 | **Training Data**           | LIAR Dataset (Political Fact-Checking)                                                                 |
-| **Evaluation Metrics**      | Accuracy, Precision, Recall, F1-score                                                                  |
+| **Evaluation Metrics**      | Accuracy, Macro-F1, Per-class (Fake) Precision/Recall/F1, ROC-AUC                                      |
 | **Training Framework**      | HuggingFace Trainer                                                                                    |
+| **Fine-tuning Method**      | QLoRA — 4-bit NF4 quantized base + LoRA adapters (PEFT) on attention query/key/value projections       |
 | **LangGraph Orchestration** | LangGraph (Multi-Agent Directed Acyclic Execution Graph)                                               |
 | **Agents Used**             | PlannerAgent, InputHandlerAgent, ToolRouterAgent, ExecutorAgent, ExplanationAgent, FallbackSearchAgent |
 | **Input Modalities**        | Raw Text, Website URLs (via Newspaper3k), PDF Documents (via PyMuPDF)                                  |
@@ -60,7 +61,7 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
   Accepts raw **text**, **web URLs**, and **PDF documents** (with client-side text extraction).
 
 * **Full NLP Pipeline**
-  Integrates **fake news classification** (RoBERTa) and **natural language explanation** (FLAN-T5).
+  Integrates **fake news classification** (QLoRA-tuned RoBERTa) and **natural language explanation** (FLAN-T5).
 
 * **Modular Agent-Based Architecture**
   Built using **LangGraph** with modular agents: `Planner`, `Router`, `Executor`, and `Fallback`.
@@ -237,13 +238,30 @@ graph TD
 ---
 
 ## Model Performance
-| Epoch | Train Loss | Val Loss | Accuracy | F1     | Precision | Recall  |
-|-------|------------|----------|----------|--------|-----------|---------|
-| 1     | 0.6353     | 0.6205   | 0.6557   | 0.6601 | 0.6663    | 0.6557  |
-| 2     | 0.6132     | 0.5765   | 0.7032   | 0.6720 | 0.6817    | 0.7032  |
-| 3     | 0.5957     | 0.5779   | 0.6970   | 0.6927 | 0.6899    | 0.6970  |
-| 4     | 0.5781     | 0.5778   | 0.6978   | 0.6899 | 0.6864    | 0.6978  |
-| 5     | 0.5599     | 0.5810   | 0.6954   | 0.6882 | 0.6846    | 0.6954  |
+
+The classifier is fine-tuned with **QLoRA** — a 4-bit NF4 quantized `roberta-base` with double quantization and bfloat16 compute, plus LoRA adapters (`r=16`, `alpha=32`, dropout `0.1`) on the attention query/key/value projections. Training runs for **5 epochs** (learning rate `2e-4`, batch size `16`, weight decay `0.01`). Only ~1.47M parameters (~1.17% of the model) are trainable; the quantized base stays frozen.
+
+Per-epoch validation metrics:
+
+| Epoch | Train Loss | Val Loss | Accuracy | Macro F1 | Precision (Fake) | Recall (Fake) | F1 (Fake) | ROC-AUC |
+|-------|------------|----------|----------|----------|------------------|---------------|-----------|---------|
+| 1     | 0.6395     | 0.6052   | 0.6807   | 0.6133   | 0.7374           | 0.8160        | 0.7747    | 0.6777  |
+| 2     | 0.6120     | 0.5835   | 0.6900   | 0.6049   | 0.7293           | 0.8576        | 0.7883    | 0.6837  |
+| 3     | 0.5907     | 0.5937   | 0.6659   | 0.6286   | 0.7630           | 0.7303        | 0.7463    | 0.7015  |
+| 4     | 0.5739     | 0.5847   | 0.6877   | 0.6284   | 0.7481           | 0.8079        | 0.7769    | 0.7017  |
+| 5     | 0.5553     | 0.5857   | 0.6877   | 0.6327   | 0.7525           | 0.7986        | 0.7748    | 0.7003  |
+
+Final metrics on the held-out **LIAR test set**:
+
+| Metric              | Score  |
+|---------------------|--------|
+| Accuracy            | 0.6606 |
+| Macro F1            | 0.6162 |
+| Precision (Fake)    | 0.7205 |
+| Recall (Fake)       | 0.7751 |
+| F1 (Fake)           | 0.7468 |
+| ROC-AUC             | 0.6875 |
+| Eval Loss           | 0.6090 |
 
 > Emphasis on **Recall** ensures the model catches most fake news cases.
 
@@ -300,6 +318,7 @@ The pipeline runs automatically on every `push` and `pull_request` to the `main`
 **Md Emon Hasan**  
 **Email:** emon.mlengineer@gmail.com
 **WhatsApp:** [+8801834363533](https://wa.me/8801834363533)  
+**Portfolio:** [Md-Emon-Hasan](https://github.com/Md-Emon-Hasan)  
 **GitHub:** [Md-Emon-Hasan](https://github.com/Md-Emon-Hasan)  
 **LinkedIn:** [Md Emon Hasan](https://www.linkedin.com/in/md-emon-hasan-695483237/)  
 **Facebook:** [Md Emon Hasan](https://www.facebook.com/mdemon.hasan2001/)

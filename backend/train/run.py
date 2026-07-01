@@ -10,8 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MODEL_NAME
 from train.config import MODEL_PATH  # Use training config for output path
 
-from transformers import RobertaTokenizer
-from transformers import RobertaForSequenceClassification
+from transformers import AutoTokenizer
 
 
 def main():
@@ -24,21 +23,20 @@ def main():
     )
 
     # Initialize tokenizer and tokenize dataset
-    tokenizer = RobertaTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     dataset = utils.tokenize_dataset(dataset, tokenizer)
 
-    # Initialize model
-    model = RobertaForSequenceClassification.from_pretrained(
-        MODEL_NAME, num_labels=2, problem_type="single_label_classification"
-    )
+    # Initialize the QLoRA model (4-bit NF4 base + LoRA adapters)
+    model = trainer.build_qlora_model(num_labels=2)
 
     # Train model
     trainer.train_model(dataset, model, tokenizer)
 
-    # Save model
+    # Save the LoRA adapter (small) + tokenizer. PeftModel.save_pretrained
+    # writes only the adapter weights, not the full quantized base.
     model.save_pretrained(MODEL_PATH)
     tokenizer.save_pretrained(MODEL_PATH)
-    print(f"Model saved to {MODEL_PATH}")
+    print(f"Adapter saved to {MODEL_PATH}")
 
 
 if __name__ == "__main__":

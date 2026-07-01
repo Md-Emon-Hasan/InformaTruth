@@ -5,7 +5,14 @@ from transformers import (
     AutoModelForSequenceClassification,
 )
 from peft import PeftModel
-from config import MODEL_DIR, FLAN_MODEL_NAME, ROBERTA_BASE_NAME, DEVICE
+from config import (
+    MODEL_DIR,
+    FLAN_MODEL_NAME,
+    ROBERTA_BASE_NAME,
+    DEVICE,
+    USE_4BIT,
+    get_quantization_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +30,38 @@ class ModelLoader:
             # Load tokenizer from the adapter directory (contains vocab files)
             self.roberta_tokenizer = AutoTokenizer.from_pretrained(str(MODEL_DIR))
 
-            # Load base model first
-            logger.info(f"Loading base model: {ROBERTA_BASE_NAME}")
-            base_model = AutoModelForSequenceClassification.from_pretrained(
-                ROBERTA_BASE_NAME,
-                num_labels=2,  # Adjust based on your liar dataset labels
-            )
+            # Load the base model. With QLoRA the base is quantized to 4-bit
+            # (NF4) on GPU; on CPU bitsandbytes 4-bit is unavailable so we load
+            # the base in full precision and attach the same LoRA adapter.
+            quant_config = get_quantization_config()
+            if quant_config is not None:
+                logger.info(
+                    f"Loading base model {ROBERTA_BASE_NAME} in 4-bit (QLoRA)..."
+                )
+                base_model = AutoModelForSequenceClassification.from_pretrained(
+                    ROBERTA_BASE_NAME,
+                    num_labels=2,  # Adjust based on your liar dataset labels
+                    quantization_config=quant_config,
+                    device_map={"": 0},  # pin to GPU 0 (keeps 4-bit state intact)
+                )
+            else:
+                logger.info(
+                    f"CUDA unavailable; loading base model {ROBERTA_BASE_NAME} "
+                    "in full precision (CPU fallback for QLoRA adapter)."
+                )
+                base_model = AutoModelForSequenceClassification.from_pretrained(
+                    ROBERTA_BASE_NAME,
+                    num_labels=2,  # Adjust based on your liar dataset labels
+                )
 
             # Load the PEFT adapter
             logger.info("Attaching PEFT adapter...")
             self.roberta_model = PeftModel.from_pretrained(base_model, str(MODEL_DIR))
-            self.roberta_model.to(DEVICE)
+            # A 4-bit base is already placed on GPU via device_map; only move the
+            # model when we loaded it in full precision (CPU / non-quantized).
+            if not USE_4BIT:
+                self.roberta_model.to(DEVICE)
+            self.roberta_model.eval()
 
             logger.info("Loading FLAN-T5 explanation model...")
             self.flan_tokenizer = AutoTokenizer.from_pretrained(FLAN_MODEL_NAME)
