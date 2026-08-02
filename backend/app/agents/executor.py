@@ -7,6 +7,11 @@ from config import DEVICE
 
 logger = logging.getLogger(__name__)
 
+EXPLANATION_UNAVAILABLE_MESSAGE = (
+    "An explanation could not be generated for this result. "
+    "The classification above is still valid."
+)
+
 
 class Executor:
     def __init__(self, classifier, flan_tokenizer, flan_model):
@@ -16,22 +21,24 @@ class Executor:
 
     def execute(self, state: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            # Classification
             pred, confidence = self.classifier.classify(state["text"])
-            state.update(
-                {"label": "Real" if pred == 0 else "Fake", "confidence": confidence}
-            )
-
-            # Explanation
-            explanation = self._generate_explanation(state)
-            state["explanation"] = explanation
-
-            logger.info("Execution completed successfully")
-            return state
-
         except Exception as e:
-            logger.error(f"Execution failed: {str(e)}")
+            logger.error(f"Classification failed: {str(e)}")
             return {**state, "error": str(e)}
+
+        state.update(
+            {"label": "Real" if pred == 0 else "Fake", "confidence": confidence}
+        )
+
+        try:
+            state["explanation"] = self._generate_explanation(state)
+        except Exception as e:
+            logger.warning(f"Explanation generation failed, degrading: {str(e)}")
+            state["explanation"] = EXPLANATION_UNAVAILABLE_MESSAGE
+            state["explanation_unavailable"] = True
+
+        logger.info("Execution completed successfully")
+        return state
 
     def _generate_explanation(self, state):
         prompt = (
@@ -44,7 +51,9 @@ class Executor:
         ).to(DEVICE)
 
         output_ids = self.flan_model.generate(
-            inputs["input_ids"], max_new_tokens=PipelineConfig.MAX_EXPLANATION_TOKENS
+            inputs["input_ids"],
+            max_new_tokens=PipelineConfig.MAX_EXPLANATION_TOKENS,
+            do_sample=False,
         )
 
         return self.flan_tokenizer.decode(output_ids[0], skip_special_tokens=True)

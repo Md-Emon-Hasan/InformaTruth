@@ -32,3 +32,5 @@ peft
 black
 ruff
 sqlmodel
+slowapi==0.1.10
+cachetools==7.1.7
