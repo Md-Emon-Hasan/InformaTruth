@@ -183,10 +183,16 @@ def analyze(
         if result.get("search_unavailable"):
             degraded_components.append("search")
 
+        guardrail_violations = result.get("guardrail_violations") or []
+
         response_body = {
             "label": result["label"],
             "confidence": f"{result['confidence']:.2f}",
             "explanation": result["explanation"],
+            "guardrails": {
+                "passed": not guardrail_violations,
+                "violations": guardrail_violations,
+            },
         }
         if degraded_components:
             response_body["degraded"] = True

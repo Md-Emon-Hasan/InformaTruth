@@ -9,6 +9,7 @@ import fitz
 
 import config
 from app.utils.cache import get_cached_url_text, set_cached_url_text
+from app.utils.guardrails import sanitize_input
 from app.utils.validation import ContentValidationError, validate_and_extract_pdf
 from app.utils.validation import validate_url
 
@@ -28,13 +29,17 @@ class InputHandler:
         input_type = state["input_type"]
         value = state["value"]
 
+        guardrail_violations = []
+
         try:
             logger.info(f"Processing {input_type} input: {value[:50]}...")
 
             if input_type == "url":
                 text = InputHandler._process_url(value)
+                text, guardrail_violations = InputHandler._apply_guardrails(text)
             elif input_type == "pdf":
                 text = InputHandler._process_pdf(value)
+                text, guardrail_violations = InputHandler._apply_guardrails(text)
             elif input_type == "text":
                 text = value
             else:
@@ -42,13 +47,28 @@ class InputHandler:
                 logger.warning(f"Unsupported input type: {input_type}")
 
             logger.debug(f"Extracted text length: {len(text)} characters")
-            return {**state, "text": text}
+            return {**state, "text": text, "guardrail_violations": guardrail_violations}
 
         except ContentValidationError:
             raise
         except Exception as e:
             logger.error(f"Input processing error: {str(e)}")
             return {**state, "error": str(e), "text": ""}
+
+    @staticmethod
+    def _apply_guardrails(text: str):
+        """Sanitise scraped (URL/PDF) text for prompt-injection content.
+
+        Only scraped content is sanitised here - raw user-typed text is not
+        third-party content and is left untouched.
+        """
+        result = sanitize_input(text)
+        if result["violations"]:
+            logger.info(
+                f"Guardrails neutralised {len(result['violations'])} "
+                "prompt-injection pattern(s) in scraped text"
+            )
+        return result["sanitised_text"], result["violations"]
 
     @staticmethod
     def _process_url(value: str) -> str:

@@ -4,6 +4,7 @@ from typing import Any
 from config import PipelineConfig
 from config import MAX_LENGTH
 from config import DEVICE
+from app.utils.guardrails import check_output
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,26 @@ class Executor:
         )
 
         try:
-            state["explanation"] = self._generate_explanation(state)
+            raw_explanation = self._generate_explanation(state)
+            output_check = check_output(raw_explanation, state.get("text", ""))
+
+            existing_violations = state.get("guardrail_violations") or []
+            state["guardrail_violations"] = (
+                existing_violations + output_check["violations"]
+            )
+
+            if not output_check["sanitised_text"].strip():
+                # Nothing safe survived sanitisation (e.g. the output was
+                # empty/degenerate) - degrade like any other explanation
+                # failure rather than returning an empty string.
+                logger.warning(
+                    "Explanation failed output guardrails, degrading: "
+                    f"{output_check['violations']}"
+                )
+                state["explanation"] = EXPLANATION_UNAVAILABLE_MESSAGE
+                state["explanation_unavailable"] = True
+            else:
+                state["explanation"] = output_check["sanitised_text"]
         except Exception as e:
             logger.warning(f"Explanation generation failed, degrading: {str(e)}")
             state["explanation"] = EXPLANATION_UNAVAILABLE_MESSAGE

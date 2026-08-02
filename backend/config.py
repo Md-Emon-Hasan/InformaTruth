@@ -49,6 +49,9 @@ class PipelineConfig:
     MAX_EXPLANATION_TOKENS = 100
 
 
+# Guardrails (prompt-injection sanitisation + output safety checks)
+GUARDRAILS_ENABLED = _env_bool("GUARDRAILS_ENABLED", True)
+
 # Caching
 CACHE_ENABLED = _env_bool("CACHE_ENABLED", True)
 

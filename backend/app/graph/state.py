@@ -1,6 +1,7 @@
 from typing import TypedDict
 from typing import Optional
 from typing import Literal
+from typing import List
 
 
 class AgentState(TypedDict):
@@ -13,3 +14,4 @@ class AgentState(TypedDict):
     confidence: Optional[float]
     explanation: Optional[str]
     fallback_used: Optional[bool]
+    guardrail_violations: Optional[List[str]]
