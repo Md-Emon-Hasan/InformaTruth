@@ -23,6 +23,7 @@ def _env_float(name: str, default: float) -> float:
 def _env_str(name: str, default: str) -> str:
     return os.getenv(name, default)
 
+
 # Get absolute path to sibling 'fine_tuned_liar_detector'
 MODEL_DIR = Path(__file__).parent / "fine_tuned_liar_detector"
 
@@ -51,6 +52,16 @@ class PipelineConfig:
 
 # Guardrails (prompt-injection sanitisation + output safety checks)
 GUARDRAILS_ENABLED = _env_bool("GUARDRAILS_ENABLED", True)
+
+# Hallucination detection
+# Self-consistency resampling roughly triples FLAN-T5 latency per request,
+# so it is off by default.
+HALLUCINATION_SELF_CONSISTENCY_ENABLED = _env_bool(
+    "HALLUCINATION_SELF_CONSISTENCY_ENABLED", False
+)
+HALLUCINATION_SELF_CONSISTENCY_SAMPLES = _env_int(
+    "HALLUCINATION_SELF_CONSISTENCY_SAMPLES", 3
+)
 
 # Caching
 CACHE_ENABLED = _env_bool("CACHE_ENABLED", True)

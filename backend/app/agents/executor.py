@@ -4,7 +4,9 @@ from typing import Any
 from config import PipelineConfig
 from config import MAX_LENGTH
 from config import DEVICE
+import config
 from app.utils.guardrails import check_output
+from app.utils.hallucination import assess_hallucination_risk, self_consistency
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +59,19 @@ class Executor:
             state["explanation"] = EXPLANATION_UNAVAILABLE_MESSAGE
             state["explanation_unavailable"] = True
 
+        state["hallucination"] = self._assess_hallucination(state)
+
         logger.info("Execution completed successfully")
         return state
 
-    def _generate_explanation(self, state):
-        prompt = (
+    def _build_prompt(self, state):
+        return (
             f"Explain why this might be {state['label'].lower()} news in one sentence: "
             f"{state['text'][:500]}"
         )
+
+    def _generate_explanation(self, state):
+        prompt = self._build_prompt(state)
 
         inputs = self.flan_tokenizer(
             prompt, return_tensors="pt", truncation=True, max_length=MAX_LENGTH
@@ -77,3 +84,40 @@ class Executor:
         )
 
         return self.flan_tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+    def _assess_hallucination(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Run hallucination detection signals; never raises.
+
+        Skipped (not "low risk") when the explanation itself was degraded,
+        since there is nothing meaningful to assess in the fallback message.
+        """
+        if state.get("explanation_unavailable"):
+            return {
+                "hallucination_risk": "unknown",
+                "reasons": ["explanation_unavailable"],
+            }
+
+        try:
+            resample_result = None
+            if config.HALLUCINATION_SELF_CONSISTENCY_ENABLED:
+                try:
+                    resample_result = self_consistency(
+                        self.flan_tokenizer,
+                        self.flan_model,
+                        self._build_prompt(state),
+                        n_samples=config.HALLUCINATION_SELF_CONSISTENCY_SAMPLES,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Self-consistency resampling failed, skipping signal: {e}"
+                    )
+
+            return assess_hallucination_risk(
+                state["label"],
+                state["explanation"],
+                state.get("text", ""),
+                self_consistency_result=resample_result,
+            )
+        except Exception as e:
+            logger.warning(f"Hallucination assessment failed, skipping: {e}")
+            return {"hallucination_risk": "unknown", "reasons": ["assessment_failed"]}

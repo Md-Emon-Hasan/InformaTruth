@@ -184,6 +184,7 @@ def analyze(
             degraded_components.append("search")
 
         guardrail_violations = result.get("guardrail_violations") or []
+        hallucination = result.get("hallucination") or {}
 
         response_body = {
             "label": result["label"],
@@ -192,6 +193,13 @@ def analyze(
             "guardrails": {
                 "passed": not guardrail_violations,
                 "violations": guardrail_violations,
+            },
+            "hallucination_risk": hallucination.get("hallucination_risk", "unknown"),
+            "hallucination_details": {
+                "reasons": hallucination.get("reasons", []),
+                "verdict_consistency": hallucination.get("verdict_consistency"),
+                "grounding": hallucination.get("grounding"),
+                "self_consistency": hallucination.get("self_consistency"),
             },
         }
         if degraded_components:

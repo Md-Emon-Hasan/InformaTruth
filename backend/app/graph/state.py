@@ -2,6 +2,8 @@ from typing import TypedDict
 from typing import Optional
 from typing import Literal
 from typing import List
+from typing import Any
+from typing import Dict
 
 
 class AgentState(TypedDict):
@@ -15,3 +17,4 @@ class AgentState(TypedDict):
     explanation: Optional[str]
     fallback_used: Optional[bool]
     guardrail_violations: Optional[List[str]]
+    hallucination: Optional[Dict[str, Any]]
