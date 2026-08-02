@@ -1,9 +1,9 @@
 # InformaTruth: AI-Driven News Authenticity Analyzer
 [![CI/CD](https://github.com/Md-Emon-Hasan/InformaTruth/actions/workflows/main.yml/badge.svg)](https://github.com/Md-Emon-Hasan/InformaTruth/actions) [![Python](https://img.shields.io/badge/python-3.11-blue)](https://python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org/) [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Transformers-blue)](https://huggingface.co/) [![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white)](https://python.langchain.com/) [![scikit-learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=flat&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/) [![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=flat&logo=pandas&logoColor=white)](https://pandas.pydata.org/) [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com) [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB) ![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)
 
-InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages RoBERTa fine-tuning, LangGraph orchestration, RAG pipelines, and fallback retrieval agents to deliver reliable, context-aware verification. The system features a modular multi-agent architecture including Planner, Retriever, Generator, Memory, and Fallback Agents, integrating diverse tools for comprehensive reasoning.
+InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages RoBERTa fine-tuning, LangGraph orchestration, and a DuckDuckGo fallback retrieval agent to deliver context-aware verification. The system features a modular multi-agent architecture - `Planner`, `InputHandler`, `Router`, `Executor`, and `FallbackSearch` - each a distinct LangGraph node, plus a guardrails layer and a heuristic hallucination-risk assessment that reuses FLAN-T5 rather than a separate model.
 
-It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query coverage and ~60% improved reliability through intelligent tool routing and memory integration. Designed for real-world deployment, InformaTruth includes a React + Vite + Tailwind CSS responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline, enabling enterprise-grade automated fact verification at scale.
+It achieves ~70% accuracy and F1 ~69% on the LIAR test set (see [Model Performance](#model-performance) below). Designed for real-world deployment, InformaTruth includes a React + Vite + Tailwind CSS responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline.
 
 [![Project demo video](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)
 
@@ -30,7 +30,7 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 | **Evaluation Metrics**      | Accuracy, Precision, Recall, F1-score                                                                  |
 | **Training Framework**      | HuggingFace Trainer                                                                                    |
 | **LangGraph Orchestration** | LangGraph (Multi-Agent Directed Acyclic Execution Graph)                                               |
-| **Agents Used**             | PlannerAgent, InputHandlerAgent, ToolRouterAgent, ExecutorAgent, ExplanationAgent, FallbackSearchAgent |
+| **Agents Used**             | `Planner`, `InputHandler`, `Router`, `Executor` (classification + explanation + hallucination check), `FallbackSearch` |
 | **Input Modalities**        | Raw Text, Website URLs (via Newspaper3k), PDF Documents (via PyMuPDF)                                  |
 | **Tool Augmentation**       | DuckDuckGo Search API (Fallback), Wikipedia (Planned), ToolRouter Logic                                |
 | **Web Scraping**            | Newspaper3k (HTML → Clean Article)                                                                     |
@@ -45,6 +45,10 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 | **Caching**                  | `cachetools` TTLCache, three independent layers (URL/classification/search), thread-safe in-memory     |
 | **Rate Limiting**           | `slowapi`, proxy-aware keying (`X-Forwarded-For`)                                                       |
 | **Resilience**               | Per-component graceful degradation (FLAN-T5, DuckDuckGo) with explicit timeouts                        |
+| **Guardrails**               | Custom regex/heuristic prompt-injection sanitiser + output PII/repetition/leak checks (stdlib only, no new model) |
+| **Hallucination Detection**  | Heuristic signals - verdict-consistency, capitalised-token grounding, opt-in FLAN-T5 self-consistency resampling (no new model) |
+| **Concurrency**              | `concurrent.futures.ThreadPoolExecutor` fan-out for DuckDuckGo fallback-search retries (RoBERTa/FLAN-T5 inference stays single-threaded) |
+| **Human-in-the-Loop**        | SQLModel-backed review queue (`needs_review`/`review_status`/`human_verdict` columns), unauthenticated  |
 
 ---
 
@@ -71,8 +75,20 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR dataset, with 95% query covera
 * **Explanation Generation**
   Uses **FLAN-T5** to generate human-readable rationales for model predictions.
 
+* **Prompt-Injection & Output Guardrails**
+  Scraped URL/PDF text is sanitised for instruction-like content (fake system delimiters, "ignore previous instructions", role markers) before it reaches any FLAN-T5 prompt. Generated explanations are checked for empty/degenerate output, runaway repetition, leaked prompt fragments, and PII not present in the source.
+
+* **Hallucination Risk Detection**
+  Three no-new-model signals - verdict-consistency (does the explanation's stance contradict the classifier's label?), a capitalised-token grounding heuristic against the source text, and an opt-in FLAN-T5 self-consistency resample - combine into a `hallucination_risk: low | medium | high` field on every response.
+
+* **Parallel Fallback Search**
+  DuckDuckGo fallback-search retries fan out concurrently via a persistent `ThreadPoolExecutor` with a bounded per-branch timeout, instead of running sequentially. Benchmarked at ~2x faster on the retry/failure path with no regression on the common success path (see `backend/scripts/benchmark_fallback_search.py`).
+
+* **Human-in-the-Loop Review Queue**
+  Analyses with low classifier confidence, high hallucination risk, or a guardrail violation are flagged into a review queue (`GET /api/review`, `POST /api/review/{id}`). A human verdict is recorded alongside - never overwriting - the model's own prediction, and `/api/stats` reports the model-vs-human agreement rate. The new `needs_review`/`review_status`/`human_verdict`/`reviewed_at` columns are added to any pre-existing SQLite database automatically at startup via a lightweight `ALTER TABLE` migration in `backend/app/db.py` - no manual rebuild step needed, and existing rows are left intact with `review_status="none"`.
+
 * **Comprehensive Testing**
-  83 backend tests with 92% coverage using automated unit and integration tests via `pytest` (Backend) and `vitest` (Frontend).
+  173 backend tests with 100% statement and branch coverage (`pytest --cov=app --cov-branch`), plus a `vitest` suite on the frontend.
 
 * **Structured Logging**
   All logs are automatically saved to the `logs/` directory for better debugging and monitoring.
@@ -147,11 +163,13 @@ InformaTruth/
 │   │   │   ├── db.py                 # Database Models
 │   │   │   └── loader.py
 │   │   ├── utils/                    # Shared Utilities
-│   │   │   ├── cache.py              # Multi-layer TTL caching (Task 1)
+│   │   │   ├── cache.py              # Multi-layer TTL caching
+│   │   │   ├── guardrails.py         # Prompt-injection sanitisation + output safety checks (Phase 1)
+│   │   │   ├── hallucination.py      # Hallucination-risk signals, reuses FLAN-T5 (Phase 2)
 │   │   │   ├── logger.py
 │   │   │   ├── results.py
-│   │   │   └── validation.py         # Text/URL/PDF input validation (Task 3)
-│   │   ├── db.py                     # Database Connection & Setup
+│   │   │   └── validation.py         # Text/URL/PDF input validation
+│   │   ├── db.py                     # Database connection, setup, and column migration
 │   │   └── main.py                   # FastAPI entry point
 │   ├── liar_dataset/                 # Raw LIAR TSV splits
 │   │   └── valid.tsv
@@ -159,21 +177,33 @@ InformaTruth/
 │   │   └── fake_news_pipeline.log
 │   ├── news/                         # Sample Data
 │   │   └── news.pdf
-│   ├── tests/                        # Backend Tests
+│   ├── scripts/
+│   │   └── benchmark_fallback_search.py  # Sequential vs. concurrent search benchmark (Phase 3)
+│   ├── tests/                        # Backend Tests (173 tests, 100% statement/branch coverage)
 │   │   ├── conftest.py
 │   │   ├── test_agents.py
 │   │   ├── test_api.py
-│   │   ├── test_background_tasks.py  # BackgroundTasks persistence (Task 5)
-│   │   ├── test_cache.py             # Multi-layer caching (Task 1)
-│   │   ├── test_db.py                # Database Integration Tests
-│   │   ├── test_degradation.py       # Graceful degradation (Task 4)
+│   │   ├── test_api_extra.py
+│   │   ├── test_app.py
+│   │   ├── test_background_tasks.py  # BackgroundTasks persistence
+│   │   ├── test_cache.py             # Multi-layer caching
+│   │   ├── test_db.py                # Database integration + schema migration
+│   │   ├── test_degradation.py       # Graceful degradation
 │   │   ├── test_edge_cases.py
-│   │   ├── test_history_stats.py     # /api/history & /api/stats (Tasks 6-7)
+│   │   ├── test_executor.py
+│   │   ├── test_graph.py
+│   │   ├── test_guardrails.py        # Prompt-injection + output guardrails (Phase 1)
+│   │   ├── test_hallucination.py     # Hallucination-risk signals (Phase 2)
+│   │   ├── test_history_stats.py     # /api/history & /api/stats
 │   │   ├── test_lifespan.py
-│   │   ├── test_model_info.py        # /api/model-info metadata (Task 8)
+│   │   ├── test_model_info.py        # /api/model-info metadata
 │   │   ├── test_models.py
-│   │   ├── test_rate_limit.py        # Rate limiting (Task 2)
-│   │   └── test_validation.py        # Input validation (Task 3)
+│   │   ├── test_parallel_search.py   # Concurrent fallback search (Phase 3)
+│   │   ├── test_rate_limit.py        # Rate limiting
+│   │   ├── test_results.py
+│   │   ├── test_review.py            # Human-in-the-loop review queue (Phase 4)
+│   │   ├── test_utils.py
+│   │   └── test_validation.py        # Input validation
 │   ├── train/                        # Training module
 │   │   ├── config.py
 │   │   ├── data_loader.py
@@ -181,7 +211,7 @@ InformaTruth/
 │   │   ├── run.py
 │   │   ├── trainer.py
 │   │   └── utils.py
-│   ├── config.py                     # Global Configuration
+│   ├── config.py                     # Global configuration (see Configuration section below)
 │   ├── Dockerfile                    # Backend Dockerfile
 │   ├── pyproject.toml                # Project Configuration
 │   ├── requirements.txt              # Python dependencies
@@ -249,13 +279,15 @@ python train/run.py
 **Backend (Pytest):**
 ```bash
 cd backend
-python -m pytest tests/ --cov=app --cov-report=term-missing
+python -m pytest tests/ --cov=app --cov-branch --cov-report=term-missing
 ```
 
 **Frontend (Vitest):**
 ```bash
 cd frontend
 npm test
+# with coverage (requires @vitest/coverage-v8, already in devDependencies):
+npx vitest run --coverage
 ```
 
 ---
@@ -264,12 +296,16 @@ npm test
 
 | Method | Path              | Description                                                        | Rate Limit                | Cache Behaviour                                                        |
 | ------ | ----------------- | -------------------------------------------------------------------| -------------------------- | ------------------------------------------------------------------------ |
-| POST   | `/analyze`        | Classifies text, a URL, or a PDF and returns a verdict + explanation | 10/min (text), 5/min (URL), 5/min (PDF) - independent per-type budgets | URL text, classification, and search results each read/write their own cache layer |
+| POST   | `/analyze`        | Classifies text, a URL, or a PDF; returns a verdict, explanation, `guardrails`, `hallucination_risk`/`hallucination_details`, and `needs_review` | 10/min (text), 5/min (URL), 5/min (PDF) - independent per-type budgets | URL text, classification, and search results each read/write their own cache layer |
 | GET    | `/api/history`    | Paginated log of past analyses, with filters                       | 60/minute                  | Not cached (always reads current DB state)                              |
-| GET    | `/api/stats`      | Aggregate statistics over the analysis log                         | 60/minute                  | Not cached, but includes live `cache_stats()` in the response           |
+| GET    | `/api/review`     | Paginated queue of analyses flagged `needs_review` (pending only), reuses `/api/history`'s pagination/filtering helpers | 60/minute | Not cached (always reads current DB state) |
+| POST   | `/api/review/{id}` | Records a human verdict on a flagged analysis, alongside (never overwriting) the model's own label/confidence | 20/minute | Not cached (write path) |
+| GET    | `/api/stats`      | Aggregate statistics over the analysis log, including review-queue counts and model-vs-human agreement rate | 60/minute | Not cached, but includes live `cache_stats()` in the response           |
 | GET    | `/api/model-info` | Static model/config metadata                                       | Unlimited                  | Not cached (trivially cheap to compute)                                 |
 
-All limits are configurable via environment variables and disabled entirely when `RATE_LIMIT_ENABLED=false`. See [Performance, Limits & Resilience](#performance-limits--resilience) below for the full list of config variables.
+All limits are configurable via environment variables and disabled entirely when `RATE_LIMIT_ENABLED=false`. See [Configuration](#configuration) below for the full list of config variables.
+
+> **Note:** `/api/review` and `POST /api/review/{id}` are unauthenticated, like every other endpoint in this API. Authentication is required before any real deployment - see [Limitations](#limitations).
 
 ---
 
@@ -290,24 +326,32 @@ graph TD
     B -->|URL| D[Newspaper3k Parser]
     B -->|PDF| E[PDF.js Extraction]
 
-    C --> F[Text Cleaner]
-    D --> F
-    E --> F
+    D --> GI[Guardrails: Prompt-Injection Sanitisation]
+    E --> GI
+    GI --> F[Text Cleaner]
+    C --> F
 
-    F --> G[Context Validator]
+    F --> G{Context Validator}
     G -->|Sufficient Context| H[RoBERTa Classifier]
-    G -->|Insufficient Context| I[Web Search Agent]
+    G -->|Insufficient Context| I[Fallback Search Agent]
 
-    I -->|Search fails/times out| ID[Degraded: no external context]
+    I --> IP{{Parallel DDGS Attempts<br/>ThreadPoolExecutor fan-out}}
+    IP -->|All fail/time out| ID[Degraded: no external context]
     ID --> H
-    I --> J[Context Aggregator]
+    IP -->|Any attempt succeeds| J[Context Aggregator]
     J --> H
 
     H -->|Classification fails| HE[Honest Error Response]
     H --> K[FLAN-T5 Explanation Generator]
     K -->|Generation fails/times out| KD[Degraded: fallback explanation message]
-    KD --> L[Output Formatter]
-    K --> L
+    K --> GO[Output Guardrails: PII/Repetition/Leak Checks]
+    GO --> HC[Hallucination Risk Assessment]
+    KD --> HC
+
+    HC --> RV{Needs Review?<br/>low confidence, high risk,<br/>or guardrail violation}
+    RV -->|Yes| RQ[(Review Queue<br/>GET/POST /api/review)]
+    RV -->|No| L[Output Formatter]
+    RQ --> L
 
     L --> BT[BackgroundTasks: DB Write + Logging]
     L --> M[React Frontend]
@@ -315,6 +359,7 @@ graph TD
     style M fill:#e3f2fd,stroke:#90caf9
     style G fill:#fff9c4,stroke:#fbc02d
     style I fill:#fbe9e7,stroke:#ff8a65
+    style IP fill:#fbe9e7,stroke:#ff8a65
     style H fill:#f1f8e9,stroke:#aed581
     style V fill:#ede7f6,stroke:#9575cd
     style RL fill:#ede7f6,stroke:#9575cd
@@ -324,6 +369,11 @@ graph TD
     style ZE fill:#ffebee,stroke:#e57373
     style RE fill:#ffebee,stroke:#e57373
     style HE fill:#ffebee,stroke:#e57373
+    style GI fill:#e8f5e9,stroke:#66bb6a
+    style GO fill:#e8f5e9,stroke:#66bb6a
+    style HC fill:#fff3e0,stroke:#ffb74d
+    style RV fill:#fff3e0,stroke:#ffb74d
+    style RQ fill:#f3e5f5,stroke:#ab47bc
 ```
 
 ---
@@ -351,7 +401,42 @@ black app/ tests/
 
 ### 3. Backend Test Suite
 
-83 tests / 92% coverage (`pytest --cov=app --cov-report=term-missing`), including the new `test_cache.py`, `test_rate_limit.py`, `test_validation.py`, `test_degradation.py`, `test_background_tasks.py`, `test_history_stats.py`, and `test_model_info.py` suites added alongside Tasks 1-8.
+173 tests, 100% statement and 100% branch coverage (`pytest --cov=app --cov-branch --cov-report=term-missing`). No `# pragma: no cover` markers were needed.
+
+### 4. Frontend Test Suite
+
+4 tests (`vitest run --coverage`), 43.5% statement / 29.4% branch coverage overall. `App.jsx`, `Footer.jsx`, `Hero.jsx`, and `Navbar.jsx` are at 100%; `AnalysisForm.jsx` (41%) and `ResultsParams.jsx` (16%) - the components that actually call `/analyze` and render its response - are largely untested. This was not chased to 100% in this session per scope; see [Limitations](#limitations).
+
+---
+
+## Configuration
+
+All variables below are read from the environment with the defaults shown (see `backend/config.py`). None are required to run locally - every one has a working default.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GUARDRAILS_ENABLED` | `true` | Toggle prompt-injection sanitisation + output safety checks |
+| `HALLUCINATION_SELF_CONSISTENCY_ENABLED` | `false` | Resample the explanation 2-3 times and check stance agreement; off by default since it roughly triples FLAN-T5 latency |
+| `HALLUCINATION_SELF_CONSISTENCY_SAMPLES` | `3` | Number of resamples when self-consistency is enabled |
+| `REVIEW_LOW_CONFIDENCE_THRESHOLD` | `0.6` | Classifier confidence below this flags an analysis for human review (unvalidated starting point) |
+| `CACHE_ENABLED` | `true` | Master toggle for all three cache layers |
+| `URL_CACHE_TTL` / `URL_CACHE_MAXSIZE` | `21600` (6h) / `512` | URL-text cache (skips Newspaper3k re-downloads) |
+| `CLASSIFY_CACHE_TTL` / `CLASSIFY_CACHE_MAXSIZE` | `1800` (30m) / `1024` | Classification cache (skips RoBERTa re-inference) |
+| `SEARCH_CACHE_TTL` / `SEARCH_CACHE_MAXSIZE` | `300` (5m) / `256` | Fallback-search cache (skips DuckDuckGo re-queries) |
+| `RATE_LIMIT_ENABLED` | `true` | Master toggle for all rate limits |
+| `RATE_LIMIT_TEXT` / `RATE_LIMIT_URL` / `RATE_LIMIT_PDF` | `10/minute` / `5/minute` / `5/minute` | Per-input-type `/analyze` budgets |
+| `RATE_LIMIT_HISTORY` / `RATE_LIMIT_STATS` | `60/minute` each | `/api/history`, `/api/stats` |
+| `RATE_LIMIT_REVIEW` / `RATE_LIMIT_REVIEW_SUBMIT` | `60/minute` / `20/minute` | `GET /api/review`, `POST /api/review/{id}` |
+| `MIN_TEXT_CHARS` / `MAX_TEXT_CHARS` | `10` / `20000` | Raw-text input length bounds |
+| `MAX_PDF_BYTES` / `MAX_PDF_PAGES` | `10485760` (~10MB) / `50` | PDF upload caps |
+| `MIN_URL_TEXT_CHARS` | `10` | Minimum extracted article length before treating a URL fetch as too thin |
+| `URL_MAX_REDIRECTS` / `URL_MAX_RESPONSE_BYTES` | `3` / `5242880` (~5MB) | URL-fetch SSRF/size guards |
+| `HTTP_TIMEOUT_SECONDS` | `10.0` | Newspaper3k article fetch timeout |
+| `SEARCH_TIMEOUT_SECONDS` | `8.0` | Per-branch DuckDuckGo timeout (each concurrent attempt gets this much time, +2s buffer before being abandoned) |
+| `SEARCH_MAX_RETRIES` | `2` | Number of concurrent DuckDuckGo attempts fired per fallback search |
+| `HISTORY_DEFAULT_LIMIT` / `HISTORY_MAX_LIMIT` | `20` / `100` | `/api/history` and `/api/review` pagination bounds |
+| `HISTORY_TEXT_TRUNCATE_CHARS` | `200` | Text/explanation truncation length in list responses |
+| `STATS_RECENT_DAYS` | `30` | Window size for `/api/stats`'s "recent" counters |
 
 ---
 
@@ -372,6 +457,17 @@ The project utilizes a comprehensive **GitHub Actions** workflow for automated t
   - Executes **Vitest** unit tests
 - **Docker**:
   - Builds `backend` and `frontend` Docker images upon successful tests
+
+---
+
+## Limitations
+
+- **The classifier is stylistic, not evidence-based.** RoBERTa was fine-tuned on the LIAR dataset (political statements), so it learns linguistic/stylistic cues correlated with the LIAR labels - it does not verify claims against real-time evidence. The DuckDuckGo fallback search only fires when input text is too short to classify directly; it is not a general-purpose fact-checking retrieval step.
+- **Hallucination-risk thresholds are unvalidated heuristics.** The grounding-score, verdict-consistency, and self-consistency thresholds in `backend/app/utils/hallucination.py` are starting points, not calibrated against any labelled hallucination dataset. Treat `hallucination_risk` as a triage signal, not a certified judgement.
+- **The grounding heuristic is a capitalised-token proxy, not NER.** No spaCy/NLTK dependency exists in this project; the grounding signal approximates named entities via capitalisation, which misses lowercase entities and can be fooled by mid-sentence capitalisation.
+- **`/api/review`, `POST /api/review/{id}`, and every other endpoint are unauthenticated.** Anyone with network access to the API can read the review queue and submit verdicts. Authentication/authorization must be added before any real deployment.
+- **Frontend test coverage is low.** `AnalysisForm.jsx` and `ResultsParams.jsx` - the components that call `/analyze` and render its response - are largely untested (see [Frontend Test Suite](#4-frontend-test-suite)).
+- **Self-consistency hallucination resampling is off by default** because it roughly triples FLAN-T5 latency per request; enabling it via `HALLUCINATION_SELF_CONSISTENCY_ENABLED` trades latency for an extra signal.
 
 ---
 
