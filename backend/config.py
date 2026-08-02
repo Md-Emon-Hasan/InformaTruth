@@ -84,6 +84,8 @@ RATE_LIMIT_URL = _env_str("RATE_LIMIT_URL", "5/minute")
 RATE_LIMIT_PDF = _env_str("RATE_LIMIT_PDF", "5/minute")
 RATE_LIMIT_HISTORY = _env_str("RATE_LIMIT_HISTORY", "60/minute")
 RATE_LIMIT_STATS = _env_str("RATE_LIMIT_STATS", "60/minute")
+RATE_LIMIT_REVIEW = _env_str("RATE_LIMIT_REVIEW", "60/minute")
+RATE_LIMIT_REVIEW_SUBMIT = _env_str("RATE_LIMIT_REVIEW_SUBMIT", "20/minute")
 
 
 # Input validation
@@ -110,3 +112,9 @@ HISTORY_DEFAULT_LIMIT = _env_int("HISTORY_DEFAULT_LIMIT", 20)
 HISTORY_MAX_LIMIT = _env_int("HISTORY_MAX_LIMIT", 100)
 HISTORY_TEXT_TRUNCATE_CHARS = _env_int("HISTORY_TEXT_TRUNCATE_CHARS", 200)
 STATS_RECENT_DAYS = _env_int("STATS_RECENT_DAYS", 30)
+
+# Human-in-the-loop review queue
+# Unvalidated starting point - a classifier confidence below this flags the
+# result for human review (softmax over 2 classes means confidence is
+# always >= 0.5, so 0.6 is a modest margin above "barely decided").
+REVIEW_LOW_CONFIDENCE_THRESHOLD = _env_float("REVIEW_LOW_CONFIDENCE_THRESHOLD", 0.6)

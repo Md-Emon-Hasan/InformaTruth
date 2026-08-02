@@ -11,3 +11,10 @@ class AnalysisResult(SQLModel, table=True):
     confidence: float
     explanation: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Human-in-the-loop review queue. `human_verdict` is recorded alongside
+    # the model's own `label`/`confidence` - it never overwrites them.
+    needs_review: bool = Field(default=False, index=True)
+    review_status: str = Field(default="none")  # "none" | "pending" | "reviewed"
+    human_verdict: Optional[str] = Field(default=None)
+    reviewed_at: Optional[datetime] = Field(default=None)

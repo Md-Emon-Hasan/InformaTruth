@@ -23,8 +23,39 @@ def _enable_wal_mode(dbapi_connection, connection_record):
         cursor.close()
 
 
+# Columns added after the initial release. SQLModel.metadata.create_all()
+# only creates missing TABLES - it never adds columns to an already-existing
+# table - so a lightweight startup migration adds them to any pre-existing
+# SQLite file. A brand new database already gets these columns via
+# create_all() since they're part of the current AnalysisResult definition;
+# the ALTER TABLE calls below are then no-ops (skipped because the columns
+# already exist).
+_ANALYSIS_RESULT_MIGRATIONS = [
+    ("needs_review", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("review_status", "VARCHAR NOT NULL DEFAULT 'none'"),
+    ("human_verdict", "VARCHAR"),
+    ("reviewed_at", "DATETIME"),
+]
+
+
+def _migrate_analysis_result_columns():
+    table_name = AnalysisResult.__tablename__
+    with engine.connect() as conn:
+        existing_columns = {
+            row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table_name})")
+        }
+        for column, ddl in _ANALYSIS_RESULT_MIGRATIONS:
+            if column not in existing_columns:
+                conn.exec_driver_sql(
+                    f"ALTER TABLE {table_name} ADD COLUMN {column} {ddl}"
+                )
+                logger.info(f"Migration: added column '{column}' to {table_name}")
+        conn.commit()
+
+
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+    _migrate_analysis_result_columns()
 
 
 def get_session():

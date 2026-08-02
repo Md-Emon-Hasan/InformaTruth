@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import List, Optional
 
 import limits as limits_lib
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
@@ -12,6 +12,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import func
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import Session, select
 
 import config
@@ -127,12 +128,25 @@ class AnalyzeRequest(BaseModel):
         return value
 
 
+def _needs_review(
+    confidence: float, hallucination_risk: str, guardrail_violations: list
+) -> bool:
+    if confidence < config.REVIEW_LOW_CONFIDENCE_THRESHOLD:
+        return True
+    if hallucination_risk == "high":
+        return True
+    if guardrail_violations:
+        return True
+    return False
+
+
 def _persist_analysis(
     content: str,
     input_type: str,
     label: str,
     confidence: float,
     explanation: str,
+    needs_review: bool,
     session: Session,
 ) -> None:
     try:
@@ -142,6 +156,8 @@ def _persist_analysis(
             label=label,
             confidence=float(confidence),
             explanation=explanation,
+            needs_review=needs_review,
+            review_status="pending" if needs_review else "none",
         )
         session.add(db_entry)
         session.commit()
@@ -149,6 +165,86 @@ def _persist_analysis(
         logger.info(f"Analysis saved to database with ID: {db_entry.id}")
     except Exception as e:
         logger.error(f"Background persistence failed: {str(e)}")
+
+
+# --- Shared history/review query building -----------------------------------
+# GET /api/review reuses this instead of duplicating /api/history's
+# pagination and filtering logic.
+
+
+def _build_analysis_query(
+    label: Optional[str] = None,
+    input_type: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    extra_where: Optional[List[ColumnElement]] = None,
+):
+    query = select(AnalysisResult)
+    count_query = select(func.count()).select_from(AnalysisResult)
+
+    conditions = []
+    if label:
+        conditions.append(AnalysisResult.label == label)
+    if input_type:
+        conditions.append(AnalysisResult.input_type == input_type)
+    if start_date:
+        conditions.append(AnalysisResult.created_at >= start_date)
+    if end_date:
+        conditions.append(AnalysisResult.created_at <= end_date)
+    if extra_where:
+        conditions.extend(extra_where)
+
+    for condition in conditions:
+        query = query.where(condition)
+        count_query = count_query.where(condition)
+
+    return query, count_query
+
+
+def _paginate(session: Session, query, count_query, limit: int, offset: int):
+    total = session.exec(count_query).one()
+    query = query.order_by(AnalysisResult.created_at.desc()).offset(offset).limit(limit)
+    rows = session.exec(query).all()
+    return rows, total
+
+
+def _serialize_analysis_row(row: AnalysisResult, truncate_at: int) -> dict:
+    return {
+        "id": row.id,
+        "input_type": row.input_type,
+        "label": row.label,
+        "confidence": row.confidence,
+        "text": row.text[:truncate_at],
+        "text_truncated": len(row.text) > truncate_at,
+        "explanation": row.explanation[:truncate_at],
+        "explanation_truncated": len(row.explanation) > truncate_at,
+        "created_at": row.created_at.isoformat(),
+    }
+
+
+def _serialize_review_row(row: AnalysisResult, truncate_at: int) -> dict:
+    item = _serialize_analysis_row(row, truncate_at)
+    item.update(
+        {
+            "needs_review": row.needs_review,
+            "review_status": row.review_status,
+            "human_verdict": row.human_verdict,
+            "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
+        }
+    )
+    return item
+
+
+class ReviewVerdictRequest(BaseModel):
+    human_verdict: str
+
+    @field_validator("human_verdict")
+    @classmethod
+    def _validate_human_verdict(cls, value: str) -> str:
+        normalized = value.strip().capitalize()
+        if normalized not in ("Real", "Fake"):
+            raise ValueError("human_verdict must be 'Real' or 'Fake'.")
+        return normalized
 
 
 @app.post("/analyze")
@@ -185,6 +281,10 @@ def analyze(
 
         guardrail_violations = result.get("guardrail_violations") or []
         hallucination = result.get("hallucination") or {}
+        hallucination_risk = hallucination.get("hallucination_risk", "unknown")
+        needs_review = _needs_review(
+            float(result["confidence"]), hallucination_risk, guardrail_violations
+        )
 
         response_body = {
             "label": result["label"],
@@ -194,13 +294,14 @@ def analyze(
                 "passed": not guardrail_violations,
                 "violations": guardrail_violations,
             },
-            "hallucination_risk": hallucination.get("hallucination_risk", "unknown"),
+            "hallucination_risk": hallucination_risk,
             "hallucination_details": {
                 "reasons": hallucination.get("reasons", []),
                 "verdict_consistency": hallucination.get("verdict_consistency"),
                 "grounding": hallucination.get("grounding"),
                 "self_consistency": hallucination.get("self_consistency"),
             },
+            "needs_review": needs_review,
         }
         if degraded_components:
             response_body["degraded"] = True
@@ -215,6 +316,7 @@ def analyze(
             result["label"],
             float(result["confidence"]),
             result["explanation"],
+            needs_review,
             session,
         )
 
@@ -243,51 +345,93 @@ def get_history(
 
     limit = min(limit, config.HISTORY_MAX_LIMIT)
 
-    query = select(AnalysisResult)
-    count_query = select(func.count()).select_from(AnalysisResult)
-
-    if label:
-        query = query.where(AnalysisResult.label == label)
-        count_query = count_query.where(AnalysisResult.label == label)
-    if input_type:
-        query = query.where(AnalysisResult.input_type == input_type)
-        count_query = count_query.where(AnalysisResult.input_type == input_type)
-    if start_date:
-        query = query.where(AnalysisResult.created_at >= start_date)
-        count_query = count_query.where(AnalysisResult.created_at >= start_date)
-    if end_date:
-        query = query.where(AnalysisResult.created_at <= end_date)
-        count_query = count_query.where(AnalysisResult.created_at <= end_date)
-
-    total = session.exec(count_query).one()
-
-    query = query.order_by(AnalysisResult.created_at.desc()).offset(offset).limit(limit)
-    rows = session.exec(query).all()
+    query, count_query = _build_analysis_query(label, input_type, start_date, end_date)
+    rows, total = _paginate(session, query, count_query, limit, offset)
 
     truncate_at = config.HISTORY_TEXT_TRUNCATE_CHARS
-    items = []
-    for row in rows:
-        text_truncated = len(row.text) > truncate_at
-        explanation_truncated = len(row.explanation) > truncate_at
-        items.append(
-            {
-                "id": row.id,
-                "input_type": row.input_type,
-                "label": row.label,
-                "confidence": row.confidence,
-                "text": row.text[:truncate_at],
-                "text_truncated": text_truncated,
-                "explanation": row.explanation[:truncate_at],
-                "explanation_truncated": explanation_truncated,
-                "created_at": row.created_at.isoformat(),
-            }
-        )
+    items = [_serialize_analysis_row(row, truncate_at) for row in rows]
 
     return {
         "items": items,
         "total": total,
         "limit": limit,
         "offset": offset,
+    }
+
+
+@app.get("/api/review")
+def get_review_queue(
+    request: Request,
+    limit: int = Query(config.HISTORY_DEFAULT_LIMIT, ge=1),
+    offset: int = Query(0, ge=0),
+    input_type: Optional[str] = Query(None),
+    session: Session = Depends(get_session),
+):
+    """Paginated queue of analyses flagged for human review.
+
+    Note: unauthenticated, like the rest of this API. Auth is required
+    before any real deployment - see README Limitations.
+    """
+    _enforce_rate_limit(request, config.RATE_LIMIT_REVIEW, "review")
+
+    limit = min(limit, config.HISTORY_MAX_LIMIT)
+
+    extra_where = [
+        AnalysisResult.needs_review,
+        AnalysisResult.review_status == "pending",
+    ]
+    query, count_query = _build_analysis_query(
+        input_type=input_type, extra_where=extra_where
+    )
+    rows, total = _paginate(session, query, count_query, limit, offset)
+
+    truncate_at = config.HISTORY_TEXT_TRUNCATE_CHARS
+    items = [_serialize_review_row(row, truncate_at) for row in rows]
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@app.post("/api/review/{result_id}")
+def submit_review(
+    result_id: int,
+    request: Request,
+    payload: ReviewVerdictRequest,
+    session: Session = Depends(get_session),
+):
+    """Record a human verdict alongside (never overwriting) the model's own
+    label/confidence.
+
+    Note: unauthenticated, like the rest of this API. Auth is required
+    before any real deployment - see README Limitations.
+    """
+    _enforce_rate_limit(request, config.RATE_LIMIT_REVIEW_SUBMIT, "review_submit")
+
+    record = session.get(AnalysisResult, result_id)
+    if record is None:
+        raise HTTPException(
+            status_code=404, detail=f"Analysis result {result_id} not found."
+        )
+
+    record.human_verdict = payload.human_verdict
+    record.review_status = "reviewed"
+    record.reviewed_at = datetime.utcnow()
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    return {
+        "id": record.id,
+        "label": record.label,
+        "confidence": record.confidence,
+        "human_verdict": record.human_verdict,
+        "review_status": record.review_status,
+        "reviewed_at": record.reviewed_at.isoformat(),
+        "agrees_with_model": record.human_verdict == record.label,
     }
 
 
@@ -309,6 +453,7 @@ def get_stats(request: Request, session: Session = Depends(get_session)):
             "avg_confidence": 0,
             "daily_counts": [],
             "cache_stats": cache_stats(),
+            "review_queue": {"pending": 0, "reviewed": 0, "agreement_rate": None},
         }
 
     now = datetime.utcnow()
@@ -353,6 +498,28 @@ def get_stats(request: Request, session: Session = Depends(get_session)):
         .order_by(func.date(AnalysisResult.created_at))
     ).all()
 
+    pending_review = session.exec(
+        select(func.count())
+        .select_from(AnalysisResult)
+        .where(AnalysisResult.needs_review, AnalysisResult.review_status == "pending")
+    ).one()
+    reviewed_count = session.exec(
+        select(func.count())
+        .select_from(AnalysisResult)
+        .where(AnalysisResult.review_status == "reviewed")
+    ).one()
+    agreement_count = session.exec(
+        select(func.count())
+        .select_from(AnalysisResult)
+        .where(
+            AnalysisResult.review_status == "reviewed",
+            AnalysisResult.human_verdict == AnalysisResult.label,
+        )
+    ).one()
+    agreement_rate = (
+        round(agreement_count / reviewed_count, 4) if reviewed_count else None
+    )
+
     return {
         "total_analyses": total,
         "today": today_count,
@@ -364,6 +531,11 @@ def get_stats(request: Request, session: Session = Depends(get_session)):
         "avg_confidence": round(avg_confidence, 4) if avg_confidence else 0,
         "daily_counts": [{"date": str(d), "count": c} for d, c in daily_rows],
         "cache_stats": cache_stats(),
+        "review_queue": {
+            "pending": pending_review,
+            "reviewed": reviewed_count,
+            "agreement_rate": agreement_rate,
+        },
     }
 
 
