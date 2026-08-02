@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock, patch
+import pytest
 import torch
 from app.models.classifier import Classifier
 from app.models.loader import ModelLoader
+from app.utils.cache import set_cached_classification
 
 
 def test_classifier_logic():
@@ -24,6 +26,33 @@ def test_classifier_logic():
 
     assert label == 0
     assert confidence > 0.5
+
+
+def test_classifier_cache_hit_skips_inference():
+    set_cached_classification("already classified text", (1, 0.77))
+
+    mock_tokenizer = MagicMock()
+    mock_model = MagicMock()
+    classifier = Classifier(mock_tokenizer, mock_model)
+
+    result = classifier.classify("already classified text")
+
+    assert result == (1, 0.77)
+    mock_tokenizer.assert_not_called()
+    mock_model.assert_not_called()
+
+
+def test_classifier_raises_and_logs_on_inference_failure():
+    mock_tokenizer = MagicMock()
+    mock_inputs = MagicMock()
+    mock_inputs.to.return_value = mock_inputs
+    mock_tokenizer.return_value = mock_inputs
+
+    mock_model = MagicMock(side_effect=Exception("inference boom"))
+
+    classifier = Classifier(mock_tokenizer, mock_model)
+    with pytest.raises(Exception, match="inference boom"):
+        classifier.classify("some unique text guaranteed to miss the cache")
 
 
 @patch("app.models.loader.AutoTokenizer.from_pretrained")

@@ -1,4 +1,59 @@
+from unittest.mock import MagicMock
+
 import config
+
+
+def test_model_info_includes_lora_config_when_peft_present(client, monkeypatch):
+    import app.main as main_module
+
+    trainable_param = MagicMock(requires_grad=True)
+    trainable_param.numel.return_value = 100
+    frozen_param = MagicMock(requires_grad=False)
+    frozen_param.numel.return_value = 900
+
+    lora_cfg = MagicMock(
+        r=8, lora_alpha=16, lora_dropout=0.1, target_modules=["query", "value"]
+    )
+    fake_model = MagicMock()
+    fake_model.peft_config = {"default": lora_cfg}
+    fake_model.parameters.return_value = [trainable_param, frozen_param]
+
+    fake_loader = MagicMock()
+    fake_loader.roberta_model = fake_model
+    fake_loader.flan_model = MagicMock()
+    monkeypatch.setattr(main_module, "model_loader", fake_loader)
+
+    response = client.get("/api/model-info")
+    data = response.json()
+
+    assert data["classifier"]["loaded"] is True
+    assert data["classifier"]["lora"]["r"] == 8
+    assert data["classifier"]["lora"]["target_modules"] == ["query", "value"]
+    assert data["classifier"]["trainable_parameters"] == 100
+    assert data["classifier"]["total_parameters"] == 1000
+    assert data["classifier"]["trainable_percentage"] == 10.0
+
+
+def test_model_info_handles_parameter_count_failure(client, monkeypatch):
+    import app.main as main_module
+
+    fake_model = MagicMock()
+    fake_model.peft_config = None
+    fake_model.parameters.side_effect = Exception("boom")
+
+    fake_loader = MagicMock()
+    fake_loader.roberta_model = fake_model
+    fake_loader.flan_model = MagicMock()
+    monkeypatch.setattr(main_module, "model_loader", fake_loader)
+
+    response = client.get("/api/model-info")
+    data = response.json()
+
+    assert data["classifier"]["loaded"] is True
+    assert data["classifier"]["lora"] == {}
+    assert data["classifier"]["trainable_parameters"] is None
+    assert data["classifier"]["total_parameters"] is None
+    assert data["classifier"]["trainable_percentage"] is None
 
 
 def test_model_info_has_all_expected_fields(client):

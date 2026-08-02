@@ -10,3 +10,9 @@ def test_logger_setup():
 
     logger = logging.getLogger("test_logger")
     assert logger.level == logging.NOTSET  # Default level if not set specific
+
+
+def test_logger_creates_missing_log_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    setup_logging()
+    assert os.path.exists("logs")

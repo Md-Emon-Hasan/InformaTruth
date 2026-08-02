@@ -13,7 +13,10 @@ def test_input_handler_unsupported():
 
 
 def test_input_handler_exception():
-    with patch("newspaper.Article", side_effect=Exception("parse error")):
+    with (
+        patch("newspaper.Article", side_effect=Exception("parse error")),
+        patch("socket.gethostbyname", return_value="93.184.216.34"),
+    ):
         state = {"input_type": "url", "value": "http://bad.com"}
         result = InputHandler.process(state)
         assert "error" in result

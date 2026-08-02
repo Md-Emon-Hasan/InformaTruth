@@ -71,6 +71,26 @@ def test_history_filter_by_label(isolated_client, isolated_db):
     assert all(item["label"] == "Fake" for item in data["items"])
 
 
+def test_history_filter_by_date_range(isolated_client, isolated_db):
+    _seed(isolated_db, n=2)
+
+    from datetime import datetime, timedelta
+
+    start_date = (datetime.utcnow() - timedelta(days=1)).isoformat()
+    end_date = (datetime.utcnow() + timedelta(days=1)).isoformat()
+
+    response = isolated_client.get(
+        "/api/history", params={"start_date": start_date, "end_date": end_date}
+    )
+    assert response.json()["total"] == 2
+
+    far_future_start = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    response = isolated_client.get(
+        "/api/history", params={"start_date": far_future_start}
+    )
+    assert response.json()["total"] == 0
+
+
 def test_history_filter_by_input_type(isolated_client, isolated_db):
     _seed(isolated_db, n=2, input_type="text")
     _seed(isolated_db, n=1, input_type="url")

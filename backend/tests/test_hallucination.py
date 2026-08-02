@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import torch
 
@@ -153,6 +153,27 @@ def test_assess_hallucination_risk_high_for_low_self_consistency_agreement():
     assert "low_self_consistency" in result["reasons"]
 
 
+def test_assess_hallucination_risk_moderate_self_consistency():
+    # Well-grounded, consistent explanation (grounding stays "low" risk on
+    # its own), but middling resample agreement should downgrade to
+    # "medium" rather than staying "low".
+    source = "The mayor announced a new budget for the city council today."
+    explanation = (
+        "This is false because the mayor announced a new budget for the council."
+    )
+    moderate_agreement = {"agreement": 0.5, "majority_stance": "fake", "stances": []}
+    result = assess_hallucination_risk(
+        "Fake", explanation, source, self_consistency_result=moderate_agreement
+    )
+    assert result["hallucination_risk"] == "medium"
+    assert "moderate_self_consistency" in result["reasons"]
+
+
+def test_self_consistency_handles_zero_samples():
+    result = self_consistency(MagicMock(), MagicMock(), "prompt", n_samples=0)
+    assert result == {"agreement": 1.0, "stances": [], "samples": []}
+
+
 # --- Executor wiring ----------------------------------------------------------
 
 
@@ -212,3 +233,43 @@ def test_executor_skips_hallucination_assessment_when_explanation_degraded():
     assert result["explanation_unavailable"] is True
     assert result["hallucination"]["hallucination_risk"] == "unknown"
     assert "explanation_unavailable" in result["hallucination"]["reasons"]
+
+
+def test_executor_degrades_when_raw_explanation_fails_output_guardrails():
+    # An empty decode() result fails check_output's empty/degenerate check,
+    # so the executor should fall back to the standard degraded message
+    # instead of returning an empty explanation.
+    executor, _ = _make_executor(decode_value="")
+    result = executor.execute({"text": "some article content for classification"})
+
+    assert result["explanation_unavailable"] is True
+    assert result["hallucination"]["hallucination_risk"] == "unknown"
+
+
+def test_executor_continues_when_self_consistency_resampling_raises(monkeypatch):
+    monkeypatch.setattr(config, "HALLUCINATION_SELF_CONSISTENCY_ENABLED", True)
+    executor, _ = _make_executor()
+
+    with patch(
+        "app.agents.executor.self_consistency", side_effect=Exception("resample boom")
+    ):
+        result = executor.execute({"text": "some article content for classification"})
+
+    assert "hallucination" in result
+    assert "self_consistency" not in result["hallucination"]
+    assert result["hallucination"]["hallucination_risk"] in ("low", "medium", "high")
+
+
+def test_executor_returns_unknown_risk_when_assessment_itself_raises():
+    executor, _ = _make_executor()
+
+    with patch(
+        "app.agents.executor.assess_hallucination_risk",
+        side_effect=Exception("assessment boom"),
+    ):
+        result = executor.execute({"text": "some article content for classification"})
+
+    assert result["hallucination"] == {
+        "hallucination_risk": "unknown",
+        "reasons": ["assessment_failed"],
+    }

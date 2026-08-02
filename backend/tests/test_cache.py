@@ -68,6 +68,13 @@ def test_ttl_expiry_misses():
     assert layer.get("k") is None
 
 
+def test_layer_set_ignores_none_value():
+    layer = cache_mod._Layer(maxsize=10, ttl=60)
+    layer.set("k", None)
+    assert layer.get("k") is None
+    assert layer.stats()["size"] == 0
+
+
 def test_failures_and_degraded_results_never_cached():
     set_cached_classification("bad text", None)
     assert get_cached_classification("bad text") is None

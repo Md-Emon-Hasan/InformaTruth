@@ -1,4 +1,5 @@
 import base64
+import socket
 from unittest.mock import patch
 
 import pytest
@@ -82,6 +83,17 @@ def test_validate_url_rejects_link_local(mock_dns):
         validate_url("http://169.254.169.254/")
 
 
+def test_validate_url_rejects_missing_hostname():
+    with pytest.raises(ContentValidationError, match="hostname"):
+        validate_url("http://")
+
+
+@patch("socket.gethostbyname", side_effect=socket.gaierror("no such host"))
+def test_validate_url_rejects_unresolvable_host(mock_dns):
+    with pytest.raises(ContentValidationError, match="Could not resolve host"):
+        validate_url("http://this-does-not-resolve.example")
+
+
 # PDF
 
 
@@ -114,6 +126,13 @@ def test_validate_pdf_too_many_pages_rejected(monkeypatch):
 def test_validate_pdf_rejects_non_pdf_bytes():
     with pytest.raises(ContentValidationError):
         validate_and_extract_pdf(b"this is not a pdf file")
+
+
+def test_validate_pdf_rejects_corrupt_pdf_that_fitz_cannot_open():
+    # Passes the "%PDF" magic-byte check but is not a real PDF stream.
+    raw = b"%PDF-1.4\ncorrupted, not an actual pdf structure"
+    with pytest.raises(ContentValidationError, match="Could not open PDF"):
+        validate_and_extract_pdf(raw)
 
 
 def test_validate_pdf_rejects_no_extractable_text():

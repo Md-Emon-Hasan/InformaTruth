@@ -1,7 +1,9 @@
 import time
+from unittest.mock import patch
 
 import config
 from app.agents.fallback_search import FallbackSearch
+from app.utils.cache import set_cached_search
 
 
 def test_concurrent_search_attempts_run_in_parallel(monkeypatch):
@@ -74,3 +76,46 @@ def test_slow_branch_times_out_without_hanging_the_request(monkeypatch):
     # Bounded by the per-branch timeout (SEARCH_TIMEOUT_SECONDS + 2s buffer),
     # not by the branch's real 3s sleep.
     assert elapsed < 2.5
+
+
+def test_search_returns_cached_text_without_calling_ddgs(monkeypatch):
+    query = "a query already served from cache"
+    set_cached_search(query, "cached body text")
+
+    class ExplodingDDGS:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("DDGS should not be constructed on a cache hit")
+
+    monkeypatch.setattr("app.agents.fallback_search.DDGS", ExplodingDDGS)
+
+    result = FallbackSearch.search({"value": query})
+    assert result["text"] == "cached body text"
+    assert result["fallback_used"] is True
+
+
+def test_search_handles_list_style_ddgs_results(monkeypatch):
+    class ListResultDDGS:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def text(self, *args, **kwargs):
+            # Some DDGS backends/mocks return a plain list rather than a
+            # generator - _run_single_query must handle both shapes.
+            return [{"title": "t", "body": "list-style result"}]
+
+    monkeypatch.setattr("app.agents.fallback_search.DDGS", ListResultDDGS)
+
+    result = FallbackSearch.search({"value": "unique list-style result query"})
+    assert result["text"] == "list-style result"
+
+
+def test_search_degrades_when_fan_out_setup_itself_fails(monkeypatch):
+    with patch(
+        "app.agents.fallback_search._run_queries_concurrently",
+        side_effect=RuntimeError("executor pool exploded"),
+    ):
+        result = FallbackSearch.search({"value": "unique fan-out failure query"})
+
+    assert result["search_unavailable"] is True
+    assert result["text"] == "Search failed"
+    assert "executor pool exploded" in result["error"]
