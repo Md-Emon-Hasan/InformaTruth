@@ -86,11 +86,7 @@ class Executor:
         return self.flan_tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
     def _assess_hallucination(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """Run hallucination detection signals; never raises.
-
-        Skipped (not "low risk") when the explanation itself was degraded,
-        since there is nothing meaningful to assess in the fallback message.
-        """
+        """Never raises. Skipped if the explanation itself was degraded."""
         if state.get("explanation_unavailable"):
             return {
                 "hallucination_risk": "unknown",

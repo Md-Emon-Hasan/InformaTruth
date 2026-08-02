@@ -367,11 +367,8 @@ def get_review_queue(
     input_type: Optional[str] = Query(None),
     session: Session = Depends(get_session),
 ):
-    """Paginated queue of analyses flagged for human review.
-
-    Note: unauthenticated, like the rest of this API. Auth is required
-    before any real deployment - see README Limitations.
-    """
+    """Paginated queue of analyses flagged for review. Unauthenticated, like
+    the rest of this API - see README Limitations."""
     _enforce_rate_limit(request, config.RATE_LIMIT_REVIEW, "review")
 
     limit = min(limit, config.HISTORY_MAX_LIMIT)
@@ -403,12 +400,7 @@ def submit_review(
     payload: ReviewVerdictRequest,
     session: Session = Depends(get_session),
 ):
-    """Record a human verdict alongside (never overwriting) the model's own
-    label/confidence.
-
-    Note: unauthenticated, like the rest of this API. Auth is required
-    before any real deployment - see README Limitations.
-    """
+    """Records a human verdict without overwriting the model's own prediction."""
     _enforce_rate_limit(request, config.RATE_LIMIT_REVIEW_SUBMIT, "review_submit")
 
     record = session.get(AnalysisResult, result_id)

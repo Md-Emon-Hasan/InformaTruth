@@ -113,8 +113,5 @@ HISTORY_MAX_LIMIT = _env_int("HISTORY_MAX_LIMIT", 100)
 HISTORY_TEXT_TRUNCATE_CHARS = _env_int("HISTORY_TEXT_TRUNCATE_CHARS", 200)
 STATS_RECENT_DAYS = _env_int("STATS_RECENT_DAYS", 30)
 
-# Human-in-the-loop review queue
-# Unvalidated starting point - a classifier confidence below this flags the
-# result for human review (softmax over 2 classes means confidence is
-# always >= 0.5, so 0.6 is a modest margin above "barely decided").
+# Human-in-the-loop review queue - flags low-confidence results for review
 REVIEW_LOW_CONFIDENCE_THRESHOLD = _env_float("REVIEW_LOW_CONFIDENCE_THRESHOLD", 0.6)

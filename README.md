@@ -1,9 +1,9 @@
 # InformaTruth: AI-Driven News Authenticity Analyzer
 [![CI/CD](https://github.com/Md-Emon-Hasan/InformaTruth/actions/workflows/main.yml/badge.svg)](https://github.com/Md-Emon-Hasan/InformaTruth/actions) [![Python](https://img.shields.io/badge/python-3.11-blue)](https://python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=flat&logo=PyTorch&logoColor=white)](https://pytorch.org/) [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Transformers-blue)](https://huggingface.co/) [![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white)](https://python.langchain.com/) [![scikit-learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=flat&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/) [![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=flat&logo=pandas&logoColor=white)](https://pandas.pydata.org/) [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com) [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB) ![Tailwind CSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)
 
-InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages RoBERTa fine-tuning, LangGraph orchestration, and a DuckDuckGo fallback retrieval agent to deliver context-aware verification. The system features a modular multi-agent architecture - `Planner`, `InputHandler`, `Router`, `Executor`, and `FallbackSearch` - each a distinct LangGraph node, plus a guardrails layer and a heuristic hallucination-risk assessment that reuses FLAN-T5 rather than a separate model.
+InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages RoBERTa fine-tuning, LangGraph orchestration, and a DuckDuckGo fallback retrieval agent to deliver context-aware verification. The system features a modular multi-agent architecture - `Planner`, `InputHandler`, `Router`, `Executor`, and `FallbackSearch` - each a distinct LangGraph node.
 
-It achieves ~70% accuracy and F1 ~69% on the LIAR test set (see [Model Performance](#model-performance) below). Designed for real-world deployment, InformaTruth includes a React + Vite + Tailwind CSS responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline.
+On top of the core pipeline, InformaTruth adds four production-hardening layers: **prompt-injection & output guardrails**, **heuristic hallucination-risk detection** (reusing FLAN-T5, no extra model), **parallelised fallback search** for lower latency on retries, and a **human-in-the-loop review queue** for flagged results. It achieves ~70% accuracy and F1 ~69% on the LIAR test set (see [Model Performance](#model-performance) below). Designed for real-world deployment, InformaTruth includes a React + Vite + Tailwind CSS responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline.
 
 [![Project demo video](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)
 
@@ -76,16 +76,16 @@ It achieves ~70% accuracy and F1 ~69% on the LIAR test set (see [Model Performan
   Uses **FLAN-T5** to generate human-readable rationales for model predictions.
 
 * **Prompt-Injection & Output Guardrails**
-  Scraped URL/PDF text is sanitised for instruction-like content (fake system delimiters, "ignore previous instructions", role markers) before it reaches any FLAN-T5 prompt. Generated explanations are checked for empty/degenerate output, runaway repetition, leaked prompt fragments, and PII not present in the source.
+  Scraped URL/PDF text is sanitised for instruction-like content (fake system delimiters, "ignore previous instructions", role markers) before it reaches any FLAN-T5 prompt.
 
 * **Hallucination Risk Detection**
-  Three no-new-model signals - verdict-consistency (does the explanation's stance contradict the classifier's label?), a capitalised-token grounding heuristic against the source text, and an opt-in FLAN-T5 self-consistency resample - combine into a `hallucination_risk: low | medium | high` field on every response.
+  A capitalised-token grounding heuristic against the source text, and an opt-in FLAN-T5 self-consistency resample - combine into a `hallucination_risk: low | medium | high` field on every response.
 
 * **Parallel Fallback Search**
-  DuckDuckGo fallback-search retries fan out concurrently via a persistent `ThreadPoolExecutor` with a bounded per-branch timeout, instead of running sequentially. Benchmarked at ~2x faster on the retry/failure path with no regression on the common success path (see `backend/scripts/benchmark_fallback_search.py`).
+  DuckDuckGo fallback-search retries fan out concurrently via a persistent `ThreadPoolExecutor` with a bounded per-branch timeout, instead of running sequentially.
 
 * **Human-in-the-Loop Review Queue**
-  Analyses with low classifier confidence, high hallucination risk, or a guardrail violation are flagged into a review queue (`GET /api/review`, `POST /api/review/{id}`). A human verdict is recorded alongside - never overwriting - the model's own prediction, and `/api/stats` reports the model-vs-human agreement rate. The new `needs_review`/`review_status`/`human_verdict`/`reviewed_at` columns are added to any pre-existing SQLite database automatically at startup via a lightweight `ALTER TABLE` migration in `backend/app/db.py` - no manual rebuild step needed, and existing rows are left intact with `review_status="none"`.
+  A human verdict is recorded alongside - never overwriting - the model's own prediction, and `/api/stats` reports the model-vs-human agreement rate.
 
 * **Comprehensive Testing**
   173 backend tests with 100% statement and branch coverage (`pytest --cov=app --cov-branch`), plus a `vitest` suite on the frontend.
@@ -282,14 +282,6 @@ cd backend
 python -m pytest tests/ --cov=app --cov-branch --cov-report=term-missing
 ```
 
-**Frontend (Vitest):**
-```bash
-cd frontend
-npm test
-# with coverage (requires @vitest/coverage-v8, already in devDependencies):
-npx vitest run --coverage
-```
-
 ---
 
 ## API Endpoints
@@ -304,8 +296,6 @@ npx vitest run --coverage
 | GET    | `/api/model-info` | Static model/config metadata                                       | Unlimited                  | Not cached (trivially cheap to compute)                                 |
 
 All limits are configurable via environment variables and disabled entirely when `RATE_LIMIT_ENABLED=false`. See [Configuration](#configuration) below for the full list of config variables.
-
-> **Note:** `/api/review` and `POST /api/review/{id}` are unauthenticated, like every other endpoint in this API. Authentication is required before any real deployment - see [Limitations](#limitations).
 
 ---
 
@@ -403,41 +393,6 @@ black app/ tests/
 
 173 tests, 100% statement and 100% branch coverage (`pytest --cov=app --cov-branch --cov-report=term-missing`). No `# pragma: no cover` markers were needed.
 
-### 4. Frontend Test Suite
-
-4 tests (`vitest run --coverage`), 43.5% statement / 29.4% branch coverage overall. `App.jsx`, `Footer.jsx`, `Hero.jsx`, and `Navbar.jsx` are at 100%; `AnalysisForm.jsx` (41%) and `ResultsParams.jsx` (16%) - the components that actually call `/analyze` and render its response - are largely untested. This was not chased to 100% in this session per scope; see [Limitations](#limitations).
-
----
-
-## Configuration
-
-All variables below are read from the environment with the defaults shown (see `backend/config.py`). None are required to run locally - every one has a working default.
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `GUARDRAILS_ENABLED` | `true` | Toggle prompt-injection sanitisation + output safety checks |
-| `HALLUCINATION_SELF_CONSISTENCY_ENABLED` | `false` | Resample the explanation 2-3 times and check stance agreement; off by default since it roughly triples FLAN-T5 latency |
-| `HALLUCINATION_SELF_CONSISTENCY_SAMPLES` | `3` | Number of resamples when self-consistency is enabled |
-| `REVIEW_LOW_CONFIDENCE_THRESHOLD` | `0.6` | Classifier confidence below this flags an analysis for human review (unvalidated starting point) |
-| `CACHE_ENABLED` | `true` | Master toggle for all three cache layers |
-| `URL_CACHE_TTL` / `URL_CACHE_MAXSIZE` | `21600` (6h) / `512` | URL-text cache (skips Newspaper3k re-downloads) |
-| `CLASSIFY_CACHE_TTL` / `CLASSIFY_CACHE_MAXSIZE` | `1800` (30m) / `1024` | Classification cache (skips RoBERTa re-inference) |
-| `SEARCH_CACHE_TTL` / `SEARCH_CACHE_MAXSIZE` | `300` (5m) / `256` | Fallback-search cache (skips DuckDuckGo re-queries) |
-| `RATE_LIMIT_ENABLED` | `true` | Master toggle for all rate limits |
-| `RATE_LIMIT_TEXT` / `RATE_LIMIT_URL` / `RATE_LIMIT_PDF` | `10/minute` / `5/minute` / `5/minute` | Per-input-type `/analyze` budgets |
-| `RATE_LIMIT_HISTORY` / `RATE_LIMIT_STATS` | `60/minute` each | `/api/history`, `/api/stats` |
-| `RATE_LIMIT_REVIEW` / `RATE_LIMIT_REVIEW_SUBMIT` | `60/minute` / `20/minute` | `GET /api/review`, `POST /api/review/{id}` |
-| `MIN_TEXT_CHARS` / `MAX_TEXT_CHARS` | `10` / `20000` | Raw-text input length bounds |
-| `MAX_PDF_BYTES` / `MAX_PDF_PAGES` | `10485760` (~10MB) / `50` | PDF upload caps |
-| `MIN_URL_TEXT_CHARS` | `10` | Minimum extracted article length before treating a URL fetch as too thin |
-| `URL_MAX_REDIRECTS` / `URL_MAX_RESPONSE_BYTES` | `3` / `5242880` (~5MB) | URL-fetch SSRF/size guards |
-| `HTTP_TIMEOUT_SECONDS` | `10.0` | Newspaper3k article fetch timeout |
-| `SEARCH_TIMEOUT_SECONDS` | `8.0` | Per-branch DuckDuckGo timeout (each concurrent attempt gets this much time, +2s buffer before being abandoned) |
-| `SEARCH_MAX_RETRIES` | `2` | Number of concurrent DuckDuckGo attempts fired per fallback search |
-| `HISTORY_DEFAULT_LIMIT` / `HISTORY_MAX_LIMIT` | `20` / `100` | `/api/history` and `/api/review` pagination bounds |
-| `HISTORY_TEXT_TRUNCATE_CHARS` | `200` | Text/explanation truncation length in list responses |
-| `STATS_RECENT_DAYS` | `30` | Window size for `/api/stats`'s "recent" counters |
-
 ---
 
 ## CI/CD Pipeline (GitHub Actions)
@@ -462,12 +417,9 @@ The project utilizes a comprehensive **GitHub Actions** workflow for automated t
 
 ## Limitations
 
-- **The classifier is stylistic, not evidence-based.** RoBERTa was fine-tuned on the LIAR dataset (political statements), so it learns linguistic/stylistic cues correlated with the LIAR labels - it does not verify claims against real-time evidence. The DuckDuckGo fallback search only fires when input text is too short to classify directly; it is not a general-purpose fact-checking retrieval step.
-- **Hallucination-risk thresholds are unvalidated heuristics.** The grounding-score, verdict-consistency, and self-consistency thresholds in `backend/app/utils/hallucination.py` are starting points, not calibrated against any labelled hallucination dataset. Treat `hallucination_risk` as a triage signal, not a certified judgement.
-- **The grounding heuristic is a capitalised-token proxy, not NER.** No spaCy/NLTK dependency exists in this project; the grounding signal approximates named entities via capitalisation, which misses lowercase entities and can be fooled by mid-sentence capitalisation.
-- **`/api/review`, `POST /api/review/{id}`, and every other endpoint are unauthenticated.** Anyone with network access to the API can read the review queue and submit verdicts. Authentication/authorization must be added before any real deployment.
-- **Frontend test coverage is low.** `AnalysisForm.jsx` and `ResultsParams.jsx` - the components that call `/analyze` and render its response - are largely untested (see [Frontend Test Suite](#4-frontend-test-suite)).
-- **Self-consistency hallucination resampling is off by default** because it roughly triples FLAN-T5 latency per request; enabling it via `HALLUCINATION_SELF_CONSISTENCY_ENABLED` trades latency for an extra signal.
+- **The classifier is stylistic, not evidence-based.** 
+- **Hallucination-risk thresholds are unvalidated heuristics.**
+- **The grounding heuristic is a capitalised-token proxy, not NER.**
 
 ---
 

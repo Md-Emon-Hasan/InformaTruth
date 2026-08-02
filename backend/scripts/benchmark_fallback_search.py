@@ -1,18 +1,9 @@
 """Benchmark: sequential vs. concurrent DuckDuckGo fallback-search retries.
 
-Run with: python scripts/benchmark_fallback_search.py
+Run: python scripts/benchmark_fallback_search.py
 
-This intentionally does NOT rely on live DuckDuckGo network timing for the
-primary numbers - DDG is rate-limited and network jitter makes repeated
-measurements noisy and non-reproducible run-to-run. Instead it simulates a
-fixed per-call latency so the concurrency *mechanism* itself (thread pool
-fan-out vs. a plain sequential loop) is what gets measured, isolated from
-network variance. A best-effort live-network run is also attempted and
-reported separately, clearly labelled, if the environment has network
-access.
-
-The old sequential-retry loop is reproduced locally here (it no longer
-exists in app/agents/fallback_search.py) purely for side-by-side timing.
+Uses simulated latency for the main numbers (live DDG timing is too noisy
+to compare runs), plus a best-effort live-network run at the end.
 """
 
 import time

@@ -23,13 +23,8 @@ def _enable_wal_mode(dbapi_connection, connection_record):
         cursor.close()
 
 
-# Columns added after the initial release. SQLModel.metadata.create_all()
-# only creates missing TABLES - it never adds columns to an already-existing
-# table - so a lightweight startup migration adds them to any pre-existing
-# SQLite file. A brand new database already gets these columns via
-# create_all() since they're part of the current AnalysisResult definition;
-# the ALTER TABLE calls below are then no-ops (skipped because the columns
-# already exist).
+# create_all() only creates missing tables, not columns on existing ones -
+# so old SQLite files need these added manually. No-op on a fresh DB.
 _ANALYSIS_RESULT_MIGRATIONS = [
     ("needs_review", "BOOLEAN NOT NULL DEFAULT 0"),
     ("review_status", "VARCHAR NOT NULL DEFAULT 'none'"),

@@ -1,29 +1,6 @@
-"""Hallucination detection signals for FLAN-T5-generated explanations.
-
-Constraint: no new ML model may be added (Render RAM budget already holds
-RoBERTa + FLAN-T5). Every signal here is either pure string/token analysis
-or reuses FLAN-T5 with a different sampling strategy - never a new model.
-
-Three signals, in increasing cost order:
-
-1. `verdict_consistency` - does the explanation's stance (real/fake wording)
-   contradict the classifier's label? Cheapest and most valuable signal.
-2. `grounding_score` - what fraction of content words and named entities in
-   the explanation also appear in the source text (+ retrieved evidence)?
-   No spaCy/NLTK dependency exists in this project, so named entities are
-   approximated with a capitalised-token heuristic (any non-sentence-initial
-   token starting with an uppercase letter). This heuristic misses lowercase
-   entities (e.g. "the who", genuinely rare) and can be fooled by mid-
-   sentence capitalisation for emphasis - it is a cheap proxy, not NER.
-3. `self_consistency` - resample the explanation 2-3 times with sampling
-   enabled and measure stance agreement across samples. This roughly
-   triples FLAN-T5 latency per request, so it is opt-in only
-   (`HALLUCINATION_SELF_CONSISTENCY_ENABLED`, default off).
-
-All thresholds below are unvalidated starting points - they were not
-tuned against any labelled hallucination dataset. Treat `hallucination_risk`
-as a rough triage signal for the review queue, not a certified judgement.
-"""
+"""Hallucination-risk signals for FLAN-T5 explanations. No new model - just
+stance matching, a grounding heuristic, and optional FLAN-T5 resampling.
+Thresholds are unvalidated starting points, not tuned on real data."""
 
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -83,11 +60,7 @@ def _stance_label(real_hits: int, fake_hits: int) -> str:
 
 def verdict_consistency(label: str, explanation: str) -> Dict[str, Any]:
     """Does the explanation's stance contradict the classifier's label?
-
-    A "neutral" explanation stance (no clear real/fake wording detected) is
-    treated as consistent - we only flag an explicit contradiction, not the
-    absence of an opinion.
-    """
+    Neutral wording (no clear stance) counts as consistent."""
     real_hits, fake_hits = _stance_counts(explanation or "")
     stance = _stance_label(real_hits, fake_hits)
     expected = "real" if (label or "").lower() == "real" else "fake"
@@ -216,13 +189,9 @@ def _capitalised_entities(text: str) -> List[str]:
 def grounding_score(
     explanation: str, source_text: str, evidence_text: str = ""
 ) -> Dict[str, Any]:
-    """Fraction of the explanation's content words/entities seen in the source.
-
-    See module docstring for the capitalised-token entity heuristic and its
-    limitations. Entities are weighted more heavily than generic content
-    words since a hallucinated proper noun (invented person/place/org) is a
-    stronger signal than an ungrounded adjective.
-    """
+    """Fraction of the explanation's content words/entities seen in the
+    source. Entities are weighted higher - a made-up name matters more
+    than an ungrounded adjective."""
     combined_source = f"{source_text or ''} {evidence_text or ''}".lower()
 
     content_words = _content_words(explanation or "")
@@ -260,11 +229,7 @@ def self_consistency(
     n_samples: int = 3,
     max_new_tokens: int = 100,
 ) -> Dict[str, Any]:
-    """Resample the explanation `n_samples` times and measure stance agreement.
-
-    Off by default behind `HALLUCINATION_SELF_CONSISTENCY_ENABLED` since this
-    multiplies FLAN-T5 latency by roughly `n_samples`.
-    """
+    """Resample the explanation and check stance agreement across samples."""
     inputs = flan_tokenizer(
         prompt, return_tensors="pt", truncation=True, max_length=config.MAX_LENGTH
     ).to(config.DEVICE)

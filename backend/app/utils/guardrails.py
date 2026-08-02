@@ -1,35 +1,13 @@
-"""Prompt-level and output-level guardrails.
-
-`app/utils/validation.py` already rejects malformed/unsafe *input* (length,
-PDF size/pages, URL scheme, SSRF) before anything is trusted. This module
-operates one step later, on content that has already passed validation:
-
-- `sanitize_input` neutralises instruction-like content in text scraped from
-  URLs/PDFs before it reaches a FLAN-T5 prompt (prompt-injection defence).
-- `check_output` screens a generated explanation for empty/degenerate text,
-  runaway repetition, leaked prompt fragments, and PII that was not present
-  in the source text.
-
-Both functions are pure and side-effect-free: they never raise and never
-reject a document outright (scraped news legitimately contains quoted
-speech that can superficially resemble an instruction). They return a
-structured result and let the caller decide what to do, mirroring the
-existing degrade-don't-fail pattern used elsewhere in the pipeline.
-"""
+"""Guardrails on top of validation.py: sanitise scraped text before it hits a
+prompt, and screen generated explanations before they go out."""
 
 import re
 from typing import Any, Dict, List
 
 import config
 
-# --- Prompt-injection detection --------------------------------------------
-#
-# Each pattern targets a specific instruction-injection technique. Matches
-# are replaced with "[filtered]" rather than causing rejection of the whole
-# document, since legitimate scraped text can quote speech containing
-# similar phrasing (e.g. a news article quoting someone saying "ignore what
-# they told you").
-
+# Injection patterns get filtered, not rejected outright - scraped articles
+# can legitimately quote speech that looks similar.
 _INJECTION_PATTERNS = [
     re.compile(
         r"ignore\s+(all|any|the)?\s*(previous|prior|above)\s+instructions?", re.I
@@ -61,13 +39,7 @@ _FILTER_MARKER = "[filtered]"
 
 
 def sanitize_input(text: str) -> Dict[str, Any]:
-    """Neutralise instruction-like content in `text`.
-
-    Returns {"passed": bool, "violations": [...], "sanitised_text": str}.
-    `passed` is False when at least one injection-like pattern was found and
-    neutralised - the request is NOT rejected, `sanitised_text` is always
-    safe to use downstream.
-    """
+    """Filter instruction-like content out of `text`. Never rejects, only redacts."""
     if not config.GUARDRAILS_ENABLED or not text:
         return {"passed": True, "violations": [], "sanitised_text": text}
 
@@ -88,15 +60,11 @@ def sanitize_input(text: str) -> Dict[str, Any]:
 # --- Output checks -----------------------------------------------------------
 
 _MIN_OUTPUT_CHARS = 5
-# Unvalidated starting point: flags an explanation where one word makes up
-# more than 40% of all words (only evaluated once there are >= 6 words).
-_MAX_WORD_REPEAT_RATIO = 0.4
+_MAX_WORD_REPEAT_RATIO = 0.4  # unvalidated starting point
 _MIN_WORDS_FOR_REPETITION_CHECK = 6
 
-# Fragments of the executor's own prompt template (see
-# app/agents/executor.py::_generate_explanation) that should never appear
-# verbatim in a generated explanation - their presence indicates the model
-# echoed the prompt instead of answering it.
+# Prompt fragments from executor.py's template - if these leak into an
+# explanation, the model echoed the prompt instead of answering it.
 _LEAKED_PROMPT_FRAGMENTS = [
     "explain why this might be",
     "in one sentence",
@@ -107,15 +75,8 @@ _PHONE_RE = re.compile(r"(?:\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{
 
 
 def check_output(explanation: str, source_text: str = "") -> Dict[str, Any]:
-    """Screen a generated explanation for degenerate/unsafe output.
-
-    Checks (in order): empty/degenerate text, runaway word repetition,
-    leaked prompt fragments, and PII (emails/phone numbers) that does not
-    appear anywhere in `source_text`. PII and leaked fragments are redacted
-    from `sanitised_text`; empty/degenerate and repetition violations are
-    reported but left for the caller to replace (there is nothing safe to
-    salvage from a degenerate string).
-    """
+    """Screen a generated explanation: empty/degenerate text, repetition,
+    leaked prompt fragments, and PII not present in the source."""
     explanation = explanation or ""
     source_text = source_text or ""
 

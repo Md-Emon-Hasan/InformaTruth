@@ -11,29 +11,16 @@ from config import PipelineConfig
 
 logger = logging.getLogger(__name__)
 
-# A persistent pool (rather than spinning up a fresh asyncio event loop per
-# request) so worker threads are reused across requests. A plain
-# ThreadPoolExecutor + concurrent.futures.wait(timeout=...) was chosen over
-# asyncio.gather/wait_for: a concurrent.futures.Future backing a blocking
-# call cannot actually be cancelled once running, and asyncio.run()'s own
-# shutdown routine (shutdown_default_executor) blocks waiting for any
-# abandoned executor work to finish anyway - silently defeating a per-branch
-# timeout. concurrent.futures.wait(timeout=...) has no such teardown step:
-# it simply stops waiting once the deadline passes, while the abandoned
-# thread finishes in the background and its result is discarded.
+# Persistent pool, reused across requests. Using concurrent.futures directly
+# instead of asyncio here: asyncio.run() waits for abandoned executor work on
+# shutdown, which breaks a per-branch timeout - plain wait(timeout=...) doesn't.
 _SEARCH_EXECUTOR = ThreadPoolExecutor(
     max_workers=8, thread_name_prefix="fallback-search"
 )
 
 
 def _run_single_query(query: str, timeout: float):
-    """Blocking DDGS call for one query - runs inside a worker thread.
-
-    RoBERTa/FLAN-T5 inference is CPU-bound and must never be parallelised
-    (it would only cause core contention on Render). DuckDuckGo search is
-    the one genuinely I/O-bound step in this pipeline, so it's the only
-    thing fanned out here.
-    """
+    """One blocking DDGS call, run inside a worker thread."""
     results = DDGS(timeout=timeout).text(query)
     if hasattr(results, "__next__"):
         return next(results, None)
@@ -41,11 +28,7 @@ def _run_single_query(query: str, timeout: float):
 
 
 def _run_queries_concurrently(query: str, attempts: int, timeout: float):
-    """Fan out `attempts` DDGS calls and bound total wait time.
-
-    See the module-level comment on `_SEARCH_EXECUTOR` for why this uses
-    concurrent.futures directly rather than asyncio.
-    """
+    """Fan out `attempts` DDGS calls and bound total wait time."""
     futures = [
         _SEARCH_EXECUTOR.submit(_run_single_query, query, timeout)
         for _ in range(attempts)
