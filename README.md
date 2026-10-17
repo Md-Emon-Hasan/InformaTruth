@@ -3,7 +3,15 @@
 
 InformaTruth is an end-to-end AI-powered multi-agent fact-checking system that automatically verifies news articles, PDFs, and web content. It leverages RoBERTa fine-tuning, LangGraph orchestration, and a DuckDuckGo fallback retrieval agent to deliver context-aware verification. The system features a modular multi-agent architecture - `Planner`, `InputHandler`, `Router`, `Executor`, and `FallbackSearch` - each a distinct LangGraph node.
 
-On top of the core pipeline, InformaTruth adds four production-hardening layers: **prompt-injection & output guardrails**, **heuristic hallucination-risk detection** (reusing FLAN-T5, no extra model), **parallelised fallback search** for lower latency on retries, and a **human-in-the-loop review queue** for flagged results. It achieves ~70% accuracy and F1 ~69% on the LIAR test set (see [Model Performance](#model-performance) below). Designed for real-world deployment, InformaTruth includes a React + Vite + Tailwind CSS responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline.
+On top of the core pipeline, InformaTruth adds four production-hardening layers: **prompt-injection & output guardrails**, **heuristic hallucination-risk detection** (reusing FLAN-T5, no extra model), **parallelised fallback search** for lower latency on retries, and a **human-in-the-loop review queue** for flagged results. On the LIAR test split the classifier reaches **64.46% accuracy and 0.6351 macro-F1**, ahead of a TF-IDF + logistic-regression baseline trained on the same data (0.6025 macro-F1) (see [Model Performance](#model-performance) below). Designed for real-world deployment, InformaTruth includes a React + Vite + Tailwind CSS responsive UI, FastAPI endpoints, Dockerized containers, and a CI/CD pipeline.
+
+---
+
+## Fine Tuned LLM
+
+[![Model](https://img.shields.io/badge/%F0%9F%A4%97%20Model-liar--roberta-yellow)](https://huggingface.co/emonHasan01/liar-roberta)
+
+---
 
 [![Project demo video](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)](https://github.com/user-attachments/assets/423ca9a1-caf1-405e-b671-be842d9a1240)
 
@@ -111,15 +119,85 @@ On top of the core pipeline, InformaTruth adds four production-hardening layers:
 ---
 
 ## Model Performance
-| Epoch | Train Loss | Val Loss | Accuracy | F1     | Precision | Recall  |
-|-------|------------|----------|----------|--------|-----------|---------|
-| 1     | 0.6353     | 0.6205   | 0.6557   | 0.6601 | 0.6663    | 0.6557  |
-| 2     | 0.6132     | 0.5765   | 0.7032   | 0.6720 | 0.6817    | 0.7032  |
-| 3     | 0.5957     | 0.5779   | 0.6970   | 0.6927 | 0.6899    | 0.6970  |
-| 4     | 0.5781     | 0.5778   | 0.6978   | 0.6899 | 0.6864    | 0.6978  |
-| 5     | 0.5599     | 0.5810   | 0.6954   | 0.6882 | 0.6846    | 0.6954  |
 
-> Emphasis on **Recall** ensures the model catches most fake news cases.
+Every number below comes from the single fine-tuning run that produced the released weights, evaluated on the held-out LIAR test split.
+
+### Results
+
+| | Accuracy | Macro F1 | F1 (Fake) | Precision (Fake) | Recall (Fake) | ROC AUC |
+|---|---|---|---|---|---|---|
+| Majority class | 0.6415 | 0.3908 | — | — | — | — |
+| TF-IDF + LogReg | 0.6220 | 0.6025 | 0.6905 | 0.7272 | 0.6574 | 0.6496 |
+| **RoBERTa (this model)** | **0.6446** | **0.6351** | **0.6940** | **0.7751** | **0.6282** | **0.6959** |
+
+The majority-class row is there on purpose: accuracy alone says very little on this dataset, since always answering `Fake` already scores 0.6415. The real gain over the TF-IDF baseline shows up in macro-F1 and ROC AUC, not in headline accuracy.
+
+The binary collapse leaves the data imbalanced - 460 Real against 823 Fake in the test split - so training used class-weighted cross-entropy and the checkpoint was chosen on macro-F1 rather than accuracy.
+
+At the default 0.5 cutoff the model is precision-leaning on the fake class (0.7751 precision against 0.6282 recall): when it flags something as fake it is usually right, but a sizeable share of fake statements still get through.
+
+### Where it succeeds and fails
+
+Accuracy across the six original LIAR classes, before the binary collapse:
+
+| LIAR class | Mapped to | n | Accuracy | Mean P(Fake) |
+|---|---|---|---|---|
+| `false` | Fake | 250 | 0.652 | 0.586 |
+| `half-true` | Fake | 267 | 0.532 | 0.534 |
+| `mostly-true` | Real | 249 | 0.663 | 0.456 |
+| `true` | Real | 211 | 0.687 | 0.449 |
+| `barely-true` | Fake | 214 | 0.668 | 0.594 |
+| `pants-fire` | Fake | 92 | 0.750 | 0.639 |
+
+The ends of the scale are separable; the middle is not. `half-true` and `mostly-true` differ by an editorial judgement that is largely unrecoverable from 18 words of text, and the model's mean probabilities on those two classes (0.534 and 0.456) sit right on the decision boundary.
+
+Of 456 errors, 150 are real statements flagged as fake and 306 are fake statements let through.
+
+### Most confident mistakes
+
+| LIAR class | True | Predicted | Confidence | Statement |
+|---|---|---|---|---|
+| `true` | Real | Fake | 0.90 | "Obama has more czars than the Romanovs." |
+| `true` | Real | Fake | 0.88 | The words subhuman mongrel, which Ted Nugent called President Barack Obama, were used by the Na… |
+| `mostly-true` | Real | Fake | 0.88 | Obama-Nelson economic record: Job creation … at slowest post-recession rate since Great Depre… |
+
+Each of these is a true statement written in a rhetorically charged register - the model is reading style, not evidence.
+
+### Choosing a threshold
+
+`P(Fake)` is exposed, so the 0.5 cutoff is a starting point rather than a verdict:
+
+| Threshold | Precision (Fake) | Recall (Fake) | F1 | Share flagged |
+|---|---|---|---|---|
+| 0.20 | 0.642 | 1.000 | 0.782 | 99.9% |
+| 0.30 | 0.669 | 0.939 | 0.782 | 90.0% |
+| 0.40 | 0.733 | 0.785 | 0.758 | 68.7% |
+| 0.50 | 0.775 | 0.628 | 0.694 | 52.0% |
+| 0.60 | 0.796 | 0.485 | 0.603 | 39.0% |
+| 0.70 | 0.835 | 0.301 | 0.443 | 23.1% |
+| 0.80 | 0.884 | 0.139 | 0.239 | 10.1% |
+
+F1 peaks around 0.30-0.40 rather than at the default 0.50. At threshold 0.65 precision reaches 0.811, with recall falling to 0.385.
+
+### Is the confidence meaningful?
+
+Expected calibration error is **0.042** over 10 bins, with the reliability curve below the diagonal - the model is overconfident, so when it says 0.9 it is right less often than 90% of the time. Treat the score as a ranking signal, not as a probability of being lied to.
+
+### Training setup
+
+| | |
+|---|---|
+| Base model | `roberta-base`, 125M parameters, all trained |
+| Objective | Class-weighted cross-entropy (weights 1.41, 0.78) |
+| Max length | 128 tokens |
+| Learning rate | 2e-5, AdamW, 10% warmup |
+| Batch size | 16 |
+| Epochs | 3, best checkpoint by validation macro-F1 |
+| Weight decay | 0.01 |
+| Seed | 42 |
+| Hardware | Tesla T4 |
+
+Statement length in the training set is a median of 22 tokens with a 95th percentile of 40, so the 128-token window truncates almost nothing.
 
 ### LIAR Label Mapping
 
@@ -252,53 +330,6 @@ InformaTruth/
 
 ---
 
-## Getting Started
-
-### 1. Running the Application (Local Development)
-To launch both the **FastAPI Backend** and **React Frontend** locally in parallel:
-```bash
-python run.py
-```
-- **Backend**: `http://localhost:8000`
-- **Frontend**: `http://localhost:5173`
-
-### 2. Running with Docker (Production/Containerized)
-To build and run the entire stack using Docker Compose:
-```bash
-docker-compose up --build
-```
-
-### 3. Running Training
-To trigger the model training process (ensure you are in `backend/`):
-```bash
-cd backend
-python train/run.py
-```
-
-### 4. Running Tests
-**Backend (Pytest):**
-```bash
-cd backend
-python -m pytest tests/ --cov=app --cov-branch --cov-report=term-missing
-```
-
----
-
-## API Endpoints
-
-| Method | Path              | Description                                                        | Rate Limit                | Cache Behaviour                                                        |
-| ------ | ----------------- | -------------------------------------------------------------------| -------------------------- | ------------------------------------------------------------------------ |
-| POST   | `/analyze`        | Classifies text, a URL, or a PDF; returns a verdict, explanation, `guardrails`, `hallucination_risk`/`hallucination_details`, and `needs_review` | 10/min (text), 5/min (URL), 5/min (PDF) - independent per-type budgets | URL text, classification, and search results each read/write their own cache layer |
-| GET    | `/api/history`    | Paginated log of past analyses, with filters                       | 60/minute                  | Not cached (always reads current DB state)                              |
-| GET    | `/api/review`     | Paginated queue of analyses flagged `needs_review` (pending only), reuses `/api/history`'s pagination/filtering helpers | 60/minute | Not cached (always reads current DB state) |
-| POST   | `/api/review/{id}` | Records a human verdict on a flagged analysis, alongside (never overwriting) the model's own label/confidence | 20/minute | Not cached (write path) |
-| GET    | `/api/stats`      | Aggregate statistics over the analysis log, including review-queue counts and model-vs-human agreement rate | 60/minute | Not cached, but includes live `cache_stats()` in the response           |
-| GET    | `/api/model-info` | Static model/config metadata                                       | Unlimited                  | Not cached (trivially cheap to compute)                                 |
-
-All limits are configurable via environment variables and disabled entirely when `RATE_LIMIT_ENABLED=false`. See [Configuration](#configuration) below for the full list of config variables.
-
----
-
 ## System Architecture
 ```mermaid
 graph TD
@@ -368,6 +399,53 @@ graph TD
 
 ---
 
+## Getting Started
+
+### 1. Running the Application (Local Development)
+To launch both the **FastAPI Backend** and **React Frontend** locally in parallel:
+```bash
+python run.py
+```
+- **Backend**: `http://localhost:8000`
+- **Frontend**: `http://localhost:5173`
+
+### 2. Running with Docker (Production/Containerized)
+To build and run the entire stack using Docker Compose:
+```bash
+docker-compose up --build
+```
+
+### 3. Running Training
+To trigger the model training process (ensure you are in `backend/`):
+```bash
+cd backend
+python train/run.py
+```
+
+### 4. Running Tests
+**Backend (Pytest):**
+```bash
+cd backend
+python -m pytest tests/ --cov=app --cov-branch --cov-report=term-missing
+```
+
+---
+
+## API Endpoints
+
+| Method | Path              | Description                                                        | Rate Limit                | Cache Behaviour                                                        |
+| ------ | ----------------- | -------------------------------------------------------------------| -------------------------- | ------------------------------------------------------------------------ |
+| POST   | `/analyze`        | Classifies text, a URL, or a PDF; returns a verdict, explanation, `guardrails`, `hallucination_risk`/`hallucination_details`, and `needs_review` | 10/min (text), 5/min (URL), 5/min (PDF) - independent per-type budgets | URL text, classification, and search results each read/write their own cache layer |
+| GET    | `/api/history`    | Paginated log of past analyses, with filters                       | 60/minute                  | Not cached (always reads current DB state)                              |
+| GET    | `/api/review`     | Paginated queue of analyses flagged `needs_review` (pending only), reuses `/api/history`'s pagination/filtering helpers | 60/minute | Not cached (always reads current DB state) |
+| POST   | `/api/review/{id}` | Records a human verdict on a flagged analysis, alongside (never overwriting) the model's own label/confidence | 20/minute | Not cached (write path) |
+| GET    | `/api/stats`      | Aggregate statistics over the analysis log, including review-queue counts and model-vs-human agreement rate | 60/minute | Not cached, but includes live `cache_stats()` in the response           |
+| GET    | `/api/model-info` | Static model/config metadata                                       | Unlimited                  | Not cached (trivially cheap to compute)                                 |
+
+All limits are configurable via environment variables and disabled entirely when `RATE_LIMIT_ENABLED=false`. See [Configuration](#configuration) below for the full list of config variables.
+
+---
+
 ## Professional Testing & Quality
 
 ### 1. Linting
@@ -395,26 +473,6 @@ black app/ tests/
 
 ---
 
-## CI/CD Pipeline (GitHub Actions)
-The project utilizes a comprehensive **GitHub Actions** workflow for automated testing and validation.
-
-### Workflow Features:
-- **Backend**:
-  - Sets up Python 3.11
-  - Installs dependencies from `requirements.txt`
-  - Runs **Ruff** for linting
-  - Runs **Black** for formatting checks
-  - Executes **Pytest** with coverage reporting
-- **Frontend**:
-  - Sets up Node.js 18
-  - Installs dependencies (`npm ci`)
-  - Runs **ESLint**
-  - Executes **Vitest** unit tests
-- **Docker**:
-  - Builds `backend` and `frontend` Docker images upon successful tests
-
----
-
 ## Limitations
 
 - **The classifier is stylistic, not evidence-based.** 
@@ -426,8 +484,8 @@ The project utilizes a comprehensive **GitHub Actions** workflow for automated t
 ## **Developed By**
 
 **Md Emon Hasan**  
-**Email:** emon.mlengineer@gmail.com
-**Portfolio:** [Md-Emon-Hasan](https://emonlabs-ai.hitechparks.com/)
+**Email:** emon.mlengineer@gmail.com  
+**Portfolio:** [Md-Emon-Hasan](https://emonlabs-ai.hitechparks.com/)  
 **WhatsApp:** [+8801834363533](https://wa.me/8801834363533)  
 **GitHub:** [Md-Emon-Hasan](https://github.com/Md-Emon-Hasan)  
 **LinkedIn:** [Md Emon Hasan](https://www.linkedin.com/in/md-emon-hasan-695483237/)  
