@@ -74,17 +74,18 @@ def test_history_filter_by_label(isolated_client, isolated_db):
 def test_history_filter_by_date_range(isolated_client, isolated_db):
     _seed(isolated_db, n=2)
 
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
-    start_date = (datetime.utcnow() - timedelta(days=1)).isoformat()
-    end_date = (datetime.utcnow() + timedelta(days=1)).isoformat()
+    now_utc = datetime.now(timezone.utc)
+    start_date = (now_utc - timedelta(days=1)).isoformat()
+    end_date = (now_utc + timedelta(days=1)).isoformat()
 
     response = isolated_client.get(
         "/api/history", params={"start_date": start_date, "end_date": end_date}
     )
     assert response.json()["total"] == 2
 
-    far_future_start = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    far_future_start = (now_utc + timedelta(days=30)).isoformat()
     response = isolated_client.get(
         "/api/history", params={"start_date": far_future_start}
     )
