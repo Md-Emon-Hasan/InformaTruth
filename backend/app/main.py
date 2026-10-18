@@ -179,6 +179,8 @@ def _build_analysis_query(
     end_date: Optional[datetime] = None,
     extra_where: Optional[List[ColumnElement]] = None,
 ):
+    start_date = _as_utc(start_date)
+    end_date = _as_utc(end_date)
     query = select(AnalysisResult)
     count_query = select(func.count()).select_from(AnalysisResult)
 
@@ -199,6 +201,15 @@ def _build_analysis_query(
         count_query = count_query.where(condition)
 
     return query, count_query
+
+
+def _as_utc(value: Optional[datetime]) -> Optional[datetime]:
+    """Normalize API date filters before binding them to timezone-aware fields."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _paginate(session: Session, query, count_query, limit: int, offset: int):
