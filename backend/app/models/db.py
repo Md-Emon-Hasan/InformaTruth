@@ -1,5 +1,5 @@
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Field, SQLModel
 
 
@@ -10,7 +10,7 @@ class AnalysisResult(SQLModel, table=True):
     label: str
     confidence: float
     explanation: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Human-in-the-loop review queue. `human_verdict` is recorded alongside
     # the model's own `label`/`confidence` - it never overwrites them.

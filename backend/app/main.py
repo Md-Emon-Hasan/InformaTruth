@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import limits as limits_lib
@@ -411,7 +411,7 @@ def submit_review(
 
     record.human_verdict = payload.human_verdict
     record.review_status = "reviewed"
-    record.reviewed_at = datetime.utcnow()
+    record.reviewed_at = datetime.now(timezone.utc)
     session.add(record)
     session.commit()
     session.refresh(record)
@@ -448,7 +448,7 @@ def get_stats(request: Request, session: Session = Depends(get_session)):
             "review_queue": {"pending": 0, "reviewed": 0, "agreement_rate": None},
         }
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     seven_days_ago = now - timedelta(days=7)
     thirty_days_ago = now - timedelta(days=config.STATS_RECENT_DAYS)
